@@ -1,0 +1,135 @@
+'use client'
+
+import React, { useState, useCallback, useEffect } from 'react'
+import Header from '@/components/Header'
+import Hero from '@/components/Hero'
+import CreationForm from '@/components/CreationForm'
+import BookViewer from '@/components/BookViewer'
+import BookEditor from '@/components/BookEditor'
+import ApiKeyModal from '@/components/ApiKeyModal'
+import BooksGallery from '@/components/BooksGallery'
+import { AppView, Book, BookRequest, GenerationStatus } from '@/types'
+import { generateBookContent } from '@/services/geminiService'
+import { apiKeyManager } from '@/services/apiKeyManager'
+
+export default function Home() {
+    const [currentView, setCurrentView] = useState<AppView>(AppView.HOME)
+    const [status, setStatus] = useState<GenerationStatus>(GenerationStatus.IDLE)
+    const [currentBook, setCurrentBook] = useState<Book | null>(null)
+    const [hasApiKey, setHasApiKey] = useState<boolean | null>(null)
+    const [showGallery, setShowGallery] = useState(false)
+
+    // Check for API key on mount
+    useEffect(() => {
+        setHasApiKey(apiKeyManager.hasKey())
+    }, [])
+
+    const handleApiKeySubmit = useCallback((key: string) => {
+        apiKeyManager.setKey(key)
+        setHasApiKey(true)
+    }, [])
+
+    const handleChangeKey = useCallback(() => {
+        apiKeyManager.removeKey()
+        setHasApiKey(false)
+    }, [])
+
+    const handleNavigate = useCallback((view: AppView) => {
+        setCurrentView(view)
+        if (view === AppView.CREATE) {
+            setStatus(GenerationStatus.IDLE)
+        }
+    }, [])
+
+    const handleCreateBook = useCallback(async (request: BookRequest) => {
+        setStatus(GenerationStatus.GENERATING_TEXT)
+        try {
+            const book = await generateBookContent(request)
+            setCurrentBook(book)
+            setStatus(GenerationStatus.SUCCESS)
+            setCurrentView(AppView.EDITOR)
+        } catch (error: any) {
+            console.error(error)
+            setStatus(GenerationStatus.ERROR)
+            // Show copyright error or general error
+            if (error.message?.includes('מוגן')) {
+                alert(error.message)
+            } else {
+                alert('Oops! Something went wrong while crafting your story. Please try again.')
+            }
+        }
+    }, [])
+
+    const handleUpdateBook = useCallback((updatedBook: Book) => {
+        setCurrentBook(updatedBook)
+    }, [])
+
+    // Show loading state while checking for API key
+    if (hasApiKey === null) {
+        return null
+    }
+
+    return (
+        <>
+            {/* API Key Modal */}
+            <ApiKeyModal
+                isVisible={!hasApiKey}
+                onKeySubmit={handleApiKeySubmit}
+            />
+
+            {/* Books Gallery Modal */}
+            {showGallery && (
+                <BooksGallery onClose={() => setShowGallery(false)} />
+            )}
+
+            <div className="min-h-screen flex flex-col font-sans text-slate-800">
+                {/* Hide Header in Editor/Reading modes for immersion/focus */}
+                {currentView !== AppView.READING && currentView !== AppView.EDITOR && (
+                    <Header
+                        onNavigate={handleNavigate}
+                        onChangeKey={handleChangeKey}
+                        onShowGallery={() => setShowGallery(true)}
+                    />
+                )}
+
+                <main className="flex-grow">
+                    {currentView === AppView.HOME && (
+                        <Hero onStart={() => setCurrentView(AppView.CREATE)} />
+                    )}
+
+                    {currentView === AppView.CREATE && (
+                        <CreationForm
+                            onSubmit={handleCreateBook}
+                            isLoading={status === GenerationStatus.GENERATING_TEXT}
+                        />
+                    )}
+
+                    {currentView === AppView.EDITOR && currentBook && (
+                        <BookEditor
+                            book={currentBook}
+                            onUpdateBook={handleUpdateBook}
+                            onPreview={() => setCurrentView(AppView.READING)}
+                            onBack={() => setCurrentView(AppView.CREATE)}
+                        />
+                    )}
+
+                    {currentView === AppView.READING && currentBook && (
+                        <BookViewer
+                            book={currentBook}
+                            onUpdateBook={handleUpdateBook}
+                            onClose={() => setCurrentView(AppView.EDITOR)}
+                        />
+                    )}
+                </main>
+
+                {currentView === AppView.HOME && (
+                    <footer className="bg-white py-8 border-t border-slate-100">
+                        <div className="max-w-7xl mx-auto px-4 text-center text-slate-400">
+                            <p>© {new Date().getFullYear()} KidCraft AI. Making learning magical.</p>
+                        </div>
+                    </footer>
+                )}
+            </div>
+        </>
+    )
+}
