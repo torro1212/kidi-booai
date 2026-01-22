@@ -368,13 +368,13 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
 
       for (let i = 0; i < book.pages.length; i++) {
         setExportProgress(`מעבד עמוד ${i + 1} מתוך ${book.pages.length}...`);
-        let imgUrl = images[i];
+        let imgUrl: string | null | undefined = images[i];
         const isCover = i === 0;
 
         if (!imgUrl) {
           const referenceToUse = bookRef.current.metadata.baseCharacterImageUrl || sessionReferenceImage;
           const textToRender = isCover ? (bookRef.current.metadata.title || '') : undefined;
-          imgUrl = await generatePageImage(
+          const newUrl = await generatePageImage(
             book.pages[i].imagePrompt,
             fullCharacterDescription,
             book.metadata.artStyle,
@@ -382,10 +382,11 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
             isCover,
             textToRender
           );
-          if (imgUrl) {
-            setImages(prev => ({ ...prev, [i]: imgUrl }));
-            if (!referenceToUse && !sessionReferenceImage) setSessionReferenceImage(imgUrl);
-            updateBookState(i, imgUrl); // Sync!
+          if (newUrl) {
+            imgUrl = newUrl;
+            setImages(prev => ({ ...prev, [i]: newUrl }));
+            if (!referenceToUse && !sessionReferenceImage) setSessionReferenceImage(newUrl);
+            updateBookState(i, newUrl); // Sync!
           }
         }
 
@@ -497,13 +498,13 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
     try {
       for (let i = 0; i < book.pages.length; i++) {
         setExportProgress(`מוסיף עמוד ${i + 1}...`);
-        let imgUrl = images[i];
+        let imgUrl: string | undefined = images[i];
         const isCover = i === 0;
 
         if (!imgUrl) {
           const ref = bookRef.current.metadata.baseCharacterImageUrl || sessionReferenceImage;
           const textToRender = isCover ? (bookRef.current.metadata.title || '') : undefined;
-          imgUrl = await generatePageImage(
+          const newUrl = await generatePageImage(
             book.pages[i].imagePrompt,
             fullCharacterDescription,
             book.metadata.artStyle,
@@ -511,7 +512,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
             isCover,
             textToRender
           );
-          if (imgUrl) { setImages(prev => ({ ...prev, [i]: imgUrl })); updateBookState(i, imgUrl); }
+          if (newUrl) { imgUrl = newUrl; setImages(prev => ({ ...prev, [i]: newUrl })); updateBookState(i, newUrl); }
         }
         if (imgUrl) {
           const canvas = await prepareExportCanvas(i, imgUrl);

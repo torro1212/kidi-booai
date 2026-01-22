@@ -276,7 +276,7 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
             referenceImage || undefined,
             isCover,
             textToRender
-          );
+          ) || undefined;
           if (imgUrl) {
             updatedPages[i].generatedImageUrl = imgUrl;
             if (!referenceImage && (i === 0 || i === 1)) referenceImage = imgUrl;

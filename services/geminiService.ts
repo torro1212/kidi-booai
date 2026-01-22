@@ -417,7 +417,7 @@ export const generatePageImage = async (
     }));
 
     for (const candidate of response.candidates || []) {
-      for (const part of candidate.content.parts) {
+      for (const part of candidate.content?.parts || []) {
         if (part.inlineData && part.inlineData.data) {
           return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }

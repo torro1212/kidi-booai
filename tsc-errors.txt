@@ -1,0 +1,8 @@
+components/BookEditor.tsx(272,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+components/BookViewer.tsx(377,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+components/BookViewer.tsx(506,11): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+services/geminiService.ts(420,26): error TS18048: 'candidate.content' is possibly 'undefined'.
+services/geminiService.ts(420,26): error TS18048: 'candidate.content.parts' is possibly 'undefined'.
