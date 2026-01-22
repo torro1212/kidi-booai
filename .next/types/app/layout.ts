@@ -1,4 +1,4 @@
-// File: C:\Users\LENOVO\Desktop\shahar\bookai\app\layout.tsx
+// File: C:\Cursor\kidi-booai\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

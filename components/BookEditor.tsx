@@ -100,6 +100,12 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
     onUpdateBook({ ...book, pages: newPages });
   };
 
+  const handleTextChange = (index: number, newText: string) => {
+    const newPages = [...book.pages];
+    newPages[index] = { ...newPages[index], hebrewText: newText };
+    onUpdateBook({ ...book, pages: newPages });
+  };
+
   // Main generation function
   const generateImagesForIndices = async (indices: number[]) => {
     if (indices.length === 0) return;
@@ -400,7 +406,17 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
                   </div>
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1 block">טקסט בעברית</label>
-                    <p className="text-xs text-slate-400 line-clamp-2" dir="rtl">{index === 0 ? book.metadata.title : page.hebrewText}</p>
+                    {index === 0 ? (
+                      <p className="text-xs text-slate-400" dir="rtl">{book.metadata.title}</p>
+                    ) : (
+                      <textarea
+                        value={page.hebrewText}
+                        onChange={(e) => handleTextChange(index, e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 focus:border-kid-blue focus:ring-1 focus:ring-kid-blue outline-none resize-none h-20 scrollbar-thin"
+                        placeholder="הטקסט בעברית..."
+                        dir="rtl"
+                      />
+                    )}
                   </div>
                 </div>
               </div>

@@ -87,8 +87,14 @@ const DriveConnectButtonInner: React.FC<DriveConnectButtonProps> = ({ onConnect,
 const DriveConnectButton: React.FC<DriveConnectButtonProps> = (props) => {
     if (!GOOGLE_CLIENT_ID) {
         return (
-            <div className="text-xs text-slate-400">
-                Google Drive לא מוגדר
+            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+                <span>⚠️</span>
+                <div className="flex flex-col">
+                    <span className="font-bold">Google Drive לא מוגדר</span>
+                    <span className="text-[10px] text-yellow-600 mt-0.5">
+                        יש להגדיר NEXT_PUBLIC_GOOGLE_CLIENT_ID בקובץ .env.local
+                    </span>
+                </div>
             </div>
         )
     }
