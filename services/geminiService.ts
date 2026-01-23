@@ -147,7 +147,22 @@ const bookSchema = {
           hebrewText: { type: Type.STRING },
           imagePrompt: {
             type: Type.STRING,
-            description: "Detailed ENGLISH visual scene description. IMPORTANT: Describe a SPECIFIC CAMERA ANGLE (e.g., 'Close-up on face', 'Wide shot from above', 'Low angle looking up') and SPECIFIC BACKGROUND DETAILS relevant to the action. Do NOT just say 'in the forest'. Say 'next to a giant oak tree with sunlight filtering through'."
+            description: `Detailed ENGLISH visual scene description. CRITICAL REQUIREMENTS FOR VARIETY:
+            
+            1. CAMERA ANGLE (must vary each page): Close-up, Medium shot, Wide shot, Bird's eye view, Low angle, Over-the-shoulder, Dutch angle
+            2. BACKGROUND DEPTH: Describe FOREGROUND, MIDDLE GROUND, and BACKGROUND separately
+            3. LIGHTING/TIME: Specify time of day and lighting (morning sunlight, sunset glow, moonlight, stormy clouds, golden hour, etc.)
+            4. ENVIRONMENTAL DETAILS: Weather, atmosphere, specific location features
+            5. COLOR PALETTE: Mention dominant colors for this specific scene
+            
+            EXAMPLES OF GOOD VARIETY:
+            ❌ BAD: "The character in the forest"
+            ✅ GOOD: "Close-up of character's surprised face, sunlight dappling through dense foliage behind them, morning mist rising from mossy ground, warm golden tones"
+            
+            ❌ BAD: "Character walking in the field"  
+            ✅ GOOD: "Wide aerial shot looking down at character walking through lavender field, distant mountains silhouetted against orange sunset sky, purple and orange color scheme, long shadows stretching across rolling hills"
+            
+            Make EVERY page visually DISTINCT!`
           },
         },
         required: ["pageNumber", "hebrewText", "imagePrompt"],
@@ -210,28 +225,125 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
   STRICT PAGE COUNT: EXACTLY ${request.pageCount} pages.
   
   GUIDELINES:
-  1. STORY (Hebrew): Engaging, age-appropriate, perfect grammar.
-     - CRITICAL: The 'title' in metadata MUST be in Hebrew ONLY. Do not include an English translation.
-  2. ART DIRECTION (English):
-     - 'mainCharacterDescription': A precise, unchanging visual definition.
-     - 'mainCharacterDistinctiveMark': CREATE A UNIQUE IDENTIFIER (e.g., "Rainbow Scarf", "Golden Goggles"). This is CRITICAL for consistency.
-     - 'visualConsistencyGuide': List specific items/colors that MUST appear in every image.
-     - 'imagePrompt' (for each page): A FULL SCENE DESCRIPTION. 
-  3. VISUAL VARIETY (CRITICAL):
-     - **VARY CAMERA ANGLES**: Do NOT use the same "medium shot" for every page. Use Close-ups, Wide shots, Bird's-eye view, Low angles.
-     - **VARY BACKGROUNDS**: Even if the setting is the same (e.g., a forest), focus on DIFFERENT parts of it (e.g., "next to a stream", "inside a hollow log", "looking up at the canopy").
-     - **DYNAMIC ACTION**: Characters should be doing different things, not just standing.
-  4. COMPOSITION AWARENESS:
-     - The images must be FULL BLEED, filling the entire square 1:1 canvas.
-     - Center the action.
-     - Do NOT leave empty space for text. Text will be added externally.
+  
+  1. STORY TEXT (Hebrew) - CRITICAL QUALITY RULES:
+     - Write CLEAR, NATURAL language that children can understand easily
+     - Focus on MEANINGFUL content - every word should serve the story
+     - DO NOT force rhymes! Natural prose is better than awkward rhyming
+     - If you do use rhymes, they must be NATURAL and not compromise meaning
+     - AVOID filler words just to make sentences longer or to create rhymes
+     - Keep sentences SHORT and SIMPLE for the target age group
+     - Each page should advance the story or teach something valuable
+     - Grammar must be PERFECT (Hebrew)
+     - CRITICAL: The 'title' in metadata MUST be in Hebrew ONLY
+     
+  2. EDUCATIONAL VALUE:
+     - Embed the educational message naturally into the story
+     - Don't preach - show through character actions and consequences
+     - Make learning feel like part of the adventure
+     
+  3. ART DIRECTION (English):
+     - 'mainCharacterDescription': A precise, unchanging visual definition
+     - 'mainCharacterDistinctiveMark': CREATE A UNIQUE IDENTIFIER (e.g., "Rainbow Scarf", "Golden Goggles")
+     - 'visualConsistencyGuide': List specific items/colors that MUST appear in every image
+     - 'imagePrompt' (for each page): A FULL SCENE DESCRIPTION
+     
+     **CRITICAL - CHARACTER INCLUSION RULES:**
+     - ONLY include the MAIN character in imagePrompt if they appear in that page's text
+     - ONLY include the SECONDARY character in imagePrompt if EXPLICITLY mentioned/relevant in that page's text
+     - DO NOT automatically add secondary character to every page
+     - If the text says "הילד הלך לבד" (the child went alone) → NO secondary character in image
+     - If the text mentions both characters → Include both in image
+     - Read the Hebrew text CAREFULLY before writing the imagePrompt
+     
+  4. VISUAL VARIETY (ABSOLUTELY CRITICAL - READ CAREFULLY):
+     
+     **BACKGROUND MUST CHANGE DRAMATICALLY BETWEEN PAGES:**
+     - Each page should feel like a COMPLETELY DIFFERENT SCENE
+     - Don't just move the character - CHANGE THE ENTIRE ENVIRONMENT
+     - Vary: Location, Time of Day, Weather, Lighting, Season, Indoor/Outdoor
+     
+     **SPECIFIC TECHNIQUES TO USE:**
+     
+     A) LOCATION VARIETY (within same general setting):
+        - If in forest: Dense canopy → Open clearing → Riverside → Cave entrance → Tree hollow → Mushroom grove
+        - If in city: Busy street → Quiet alley → Rooftop → Park → Shop interior → Underground tunnel
+        - If in home: Kitchen → Bedroom → Attic → Garden → Basement → Window view
+     
+     B) TIME & LIGHTING (rotate through):
+        - Dawn (soft pink/orange light, long shadows)
+        - Midday (bright, high contrast, blue sky)
+        - Sunset (golden hour, warm oranges/purples)
+        - Night (moonlight, stars, cool blues)
+        - Stormy (dark clouds, dramatic lighting)
+     
+     C) WEATHER & ATMOSPHERE:
+        - Clear sky → Cloudy → Rainy → Foggy → Snowy → Windy
+        - Each creates COMPLETELY different mood and colors
+     
+     D) CAMERA ANGLES (use different one each page):
+        - Page 1: Wide establishing shot
+        - Page 2: Close-up on character's face
+        - Page 3: Bird's eye view from above
+        - Page 4: Low angle looking up
+        - Page 5: Over-the-shoulder perspective
+        - (Continue varying throughout)
+     
+     E) DEPTH & COMPOSITION:
+        - Always describe: Foreground elements → Middle ground action → Background scenery
+        - Example: "Flowers in foreground, character in middle, mountains in background"
+     
+     **COLOR PALETTE MUST VARY:**
+     - Page 1: Warm (reds, oranges, yellows)
+     - Page 2: Cool (blues, purples, greens)  
+     - Page 3: Neutral (browns, grays, whites)
+     - (Rotate to create visual rhythm)
+     
+  5. COMPOSITION AWARENESS:
+     - Images must be FULL BLEED, filling entire square 1:1 canvas
+     - Center the action
+     - Do NOT leave empty space for text
   `;
 
   let prompt = `Create a children's book.
   Target Age: ${request.ageRange}
   Topic: ${request.topic}
   REQUIRED LENGTH: EXACTLY ${request.pageCount} pages. Start with page 1 as the cover and end with page ${request.pageCount}.
-  Art Style Selection: ${request.artStyle}`;
+  Art Style Selection: ${request.artStyle}
+  
+  WRITING EXAMPLES:
+  
+  ❌ BAD (Forced rhyme, filler words):
+  "הצב הקטן הלך בדרך ארוכה עם כובע על ראשו באופן מיוחד ונפלא"
+  (Too many unnecessary descriptive words just to make it longer)
+  
+  ✅ GOOD (Clear, meaningful):
+  "הצב הקטן הלך לחפש את חבריו"
+  (Simple, clear, advances the story)
+  
+  ❌ BAD (Awkward rhyme):
+  "היא קפצה לשמיים ועפה עם הציפורים והכל היה מלא בצבעי קשת בהירים"
+  (Forced ending just to rhyme, doesn't make sense)
+  
+  ✅ GOOD (Natural, meaningful):
+  "היא קפצה גבוה וראתה את העולם מלמעלה. כמה יפה!"
+  (Natural exclamation, conveys emotion without forcing rhyme)
+  
+  CHARACTER INCLUSION EXAMPLES:
+  
+  Page Text: "הילד הלך לבד ביער האפל"
+  ✅ CORRECT imagePrompt: "Young boy walking alone through dark forest, moonlight filtering through bare trees"
+  ❌ WRONG imagePrompt: "Young boy and his bird companion walking through dark forest" (bird not mentioned!)
+  
+  Page Text: "הילד והציפור שלו חיפשו את האוצר"
+  ✅ CORRECT imagePrompt: "Young boy with colorful bird perched on shoulder, both looking at treasure map"
+  ❌ WRONG imagePrompt: "Young boy looking at treasure map" (bird IS mentioned, must include!)
+  
+  Page Text: "בבית, אמא הכינה ארוחה"
+  ✅ CORRECT imagePrompt: "Cozy kitchen, mother preparing meal at wooden table"
+  ❌ WRONG imagePrompt: "Mother and main character in kitchen" (main character not in this scene!)
+  
+  Remember: Quality over rhyming. Every word should have PURPOSE. Match images to TEXT!`;
 
   if (request.previousContext) {
     prompt += `

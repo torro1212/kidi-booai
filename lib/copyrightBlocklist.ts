@@ -1,34 +1,38 @@
 // רשימת מילים ודמויות חסומות מסיבות של זכויות יוצרים
 // Copyright blocklist - characters and terms that should not be used
 
-export const BLOCKED_CHARACTERS = [
-    // Disney
-    'מיקי מאוס', 'mickey mouse', 'מיני מאוס', 'minnie mouse',
-    'אלזה', 'elsa', 'אנה', 'anna', 'frozen', 'פרוזן',
-    'סינדרלה', 'cinderella', 'שלגייה', 'snow white',
-    'אריאל', 'ariel', 'בת הים', 'little mermaid',
-    'סימבה', 'simba', 'מלך האריות', 'lion king',
-    'באז', 'buzz lightyear', 'וודי', 'woody', 'צעצוע של סיפור', 'toy story',
-    'נמו', 'nemo', 'דורי', 'dory',
-    'מואנה', 'moana', 'רפונזל', 'rapunzel', 'tangled',
+// Visual appearance blocklist - SPECIFIC descriptions that clearly reference copyrighted characters
+// NOTE: We do NOT block common names (like "אנה", "אריאל") because they're regular names too!
+// We ONLY block when the VISUAL DESCRIPTION clearly matches a copyrighted character
 
-    // Marvel/DC
-    'ספיידרמן', 'spider-man', 'spiderman', 'איש העכביש',
-    'באטמן', 'batman', 'סופרמן', 'superman',
-    'איירון מן', 'iron man', 'תור', 'thor', 'הענק הירוק', 'hulk',
-    'קפטן אמריקה', 'captain america', 'נוקמים', 'avengers',
-    'וונדר וומן', 'wonder woman',
+export const BLOCKED_VISUAL_DESCRIPTIONS = [
+    // Disney - Frozen (only block if VISUAL description matches)
+    'שמלה כחולה קפואה', 'ice powers', 'יכולת קרח', 'כוחות קרח',
+    'קופצת צמות', 'braided hair with snow', 'שמלה ירוקה עם פרחים',
 
-    // Anime/Manga
-    'פיקאצ\'ו', 'pikachu', 'פוקימון', 'pokemon',
-    'נארוטו', 'naruto', 'גוקו', 'goku', 'דרגון בול', 'dragon ball',
-    'סיילור מון', 'sailor moon',
+    // Disney - Princesses (only specific visual combos)
+    'כדורי זכוכית ונעל זכוכית', 'glass slipper', 'נעל זכוכית',
+    'שיער שחור ושבעה גמדים', 'seven dwarfs',
+    'זנב של בת ים אדומים', 'red mermaid tail', 'purple seashell bra',
 
-    // Other
-    'הלו קיטי', 'hello kitty', 'ספוגבוב', 'spongebob',
-    'פפה חזיר', 'peppa pig', 'מפלצות בע"מ', 'monsters inc',
-    'שרק', 'shrek', 'מיניונים', 'minions',
-    'הארי פוטר', 'harry potter', 'הוגוורטס', 'hogwarts'
+    // Disney - Lion King
+    'אריה צהוב עם רעמה אדומה', 'lion with red mane', 'מלך האריות עם סימבה',
+
+    // Marvel/DC - only if costume described
+    'תלבושת אדום וכחול עכביש', 'spider web shooters', 'מקליע רשתות',
+    'גלימה שחורה וסמל עטלף', 'bat symbol', 'סמל עטלף על החזה',
+    'גלימה כחול אדום וסמל S', 'S symbol on chest', 'מעוף עם גלימה אדומה',
+    'שריון אדום וזהב', 'iron man suit', 'שריון מתכת מעופף',
+    'פטיש ענק וגלימה אדומה', 'mjolnir hammer', 'פטיש קסום תור',
+
+    // Pokemon
+    'עכבר חשמל צהוב עם זנב ברק', 'yellow electric mouse', 'פיקאצו בדיוק',
+    'כדור פוקימון', 'pokeball', 'לתפוס פוקימון',
+
+    // Other clear visual matches
+    'ספוג צהוב מרובע עם מכנסיים', 'square yellow sponge',
+    'חזיר ורוד בשמלה', 'pink pig with dress peppa',
+    'אגר ירוק ענק', 'ogre with donkey shrek'
 ]
 
 export const BLOCKED_BRANDS = [
@@ -47,10 +51,10 @@ export const checkForCopyrightIssues = (text: string): {
 } => {
     const lowerText = text.toLowerCase()
 
-    // Check characters
-    for (const char of BLOCKED_CHARACTERS) {
-        if (lowerText.includes(char.toLowerCase())) {
-            return { isBlocked: true, blockedTerm: char }
+    // Check visual descriptions
+    for (const desc of BLOCKED_VISUAL_DESCRIPTIONS) {
+        if (lowerText.includes(desc.toLowerCase())) {
+            return { isBlocked: true, blockedTerm: desc }
         }
     }
 
@@ -66,5 +70,5 @@ export const checkForCopyrightIssues = (text: string): {
 
 // Get list of all blocked terms for display
 export const getAllBlockedTerms = (): string[] => {
-    return [...BLOCKED_CHARACTERS, ...BLOCKED_BRANDS]
+    return [...BLOCKED_VISUAL_DESCRIPTIONS, ...BLOCKED_BRANDS]
 }
