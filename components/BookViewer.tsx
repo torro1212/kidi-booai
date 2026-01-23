@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Book } from '@/types'
 import { generatePageImage, generatePageAudio } from '@/services/geminiService'
+import { startBackgroundMode, stopBackgroundMode } from '@/services/backgroundMode'
 import DriveConnectButton from '@/components/DriveConnectButton'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
@@ -358,6 +359,10 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
     if (isExporting) return;
     setIsExporting(true);
     setExportProgress('מכין חבילה מלאה...');
+
+    // Enable background mode to prevent mobile from suspending
+    await startBackgroundMode();
+
     const zip = new JSZip();
     // A4 Portrait for standardized printing
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -483,6 +488,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
       console.error("Export failed:", error);
       alert("הייצוא נכשל. אנא נסה שוב.");
     } finally {
+      stopBackgroundMode(); // Release wake lock
       setIsExporting(false);
       setExportProgress('');
     }
@@ -492,6 +498,10 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
     if (isExporting) return;
     setIsExporting(true);
     setExportProgress('יוצר PDF...');
+
+    // Enable background mode to prevent mobile from suspending
+    await startBackgroundMode();
+
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = 210;
 
@@ -586,7 +596,11 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
           }
         }, 500);
       }
-    } finally { setIsExporting(false); setExportProgress(''); }
+    } finally {
+      stopBackgroundMode(); // Release wake lock
+      setIsExporting(false);
+      setExportProgress('');
+    }
   };
 
   return (

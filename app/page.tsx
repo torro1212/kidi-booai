@@ -10,6 +10,7 @@ import ApiKeyModal from '@/components/ApiKeyModal'
 import BooksGallery from '@/components/BooksGallery'
 import { AppView, Book, BookRequest, GenerationStatus } from '@/types'
 import { generateBookContent } from '@/services/geminiService'
+import { startBackgroundMode, stopBackgroundMode } from '@/services/backgroundMode'
 import { apiKeyManager } from '@/services/apiKeyManager'
 
 export default function Home() {
@@ -43,6 +44,10 @@ export default function Home() {
 
     const handleCreateBook = useCallback(async (request: BookRequest) => {
         setStatus(GenerationStatus.GENERATING_TEXT)
+
+        // Enable background mode to prevent mobile from suspending
+        await startBackgroundMode()
+
         try {
             const book = await generateBookContent(request)
             setCurrentBook(book)
@@ -57,6 +62,8 @@ export default function Home() {
             } else {
                 alert('Oops! Something went wrong while crafting your story. Please try again.')
             }
+        } finally {
+            stopBackgroundMode() // Release wake lock
         }
     }, [])
 
