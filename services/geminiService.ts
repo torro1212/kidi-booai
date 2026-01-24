@@ -120,6 +120,33 @@ const bookSchema = {
           type: Type.STRING,
           description: "Description of any recurring magical or key object."
         },
+        characterColorPalette: {
+          type: Type.OBJECT,
+          description: "EXACT HEX color codes for the main character. These MUST be consistent across ALL images.",
+          properties: {
+            skinTone: {
+              type: Type.STRING,
+              description: "HEX code for skin color, e.g. '#F5D0C5' for light peach, '#8D5524' for brown, '#D4A373' for tan"
+            },
+            hairColor: {
+              type: Type.STRING,
+              description: "HEX code for hair color, e.g. '#2C1810' for dark brown, '#FFD700' for blonde, '#8B0000' for red"
+            },
+            primaryClothingColor: {
+              type: Type.STRING,
+              description: "HEX code for main clothing item color, e.g. '#FF4444' for red, '#1E90FF' for blue"
+            },
+            secondaryClothingColor: {
+              type: Type.STRING,
+              description: "HEX code for secondary clothing/accessory color"
+            },
+            distinctiveMarkColor: {
+              type: Type.STRING,
+              description: "HEX code for the distinctive mark/accessory color"
+            }
+          },
+          required: ["skinTone", "hairColor", "primaryClothingColor", "secondaryClothingColor", "distinctiveMarkColor"]
+        },
         titlePrimaryColor: { type: Type.STRING },
         titleSecondaryColor: { type: Type.STRING },
         titleEffectTheme: {
@@ -136,7 +163,7 @@ const bookSchema = {
           required: ["characterTraits", "objectTraits", "backgroundStyle"]
         }
       },
-      required: ["title", "targetAge", "mainTheme", "educationalMessage", "mainCharacterDescription", "mainCharacterDistinctiveMark", "artStyle", "keyObjectDescription", "titlePrimaryColor", "titleSecondaryColor", "titleEffectTheme", "visualConsistencyGuide"],
+      required: ["title", "targetAge", "mainTheme", "educationalMessage", "mainCharacterDescription", "mainCharacterDistinctiveMark", "artStyle", "keyObjectDescription", "characterColorPalette", "titlePrimaryColor", "titleSecondaryColor", "titleEffectTheme", "visualConsistencyGuide"],
     },
     pages: {
       type: Type.ARRAY,
@@ -347,9 +374,28 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
 
   if (request.previousContext) {
     prompt += `
-    SEQUEL MODE: Maintain character consistency with the previous story: "${request.previousContext.title}".
-    Previous Main Character: ${request.previousContext.characterDescription}.
-    ${request.previousContext.secondaryCharacterDescription ? `Previous Secondary Character: ${request.previousContext.secondaryCharacterDescription}` : ''}
+    
+    ===== SEQUEL MODE - CRITICAL CHARACTER CONSISTENCY =====
+    
+    This is a CONTINUATION of the story: "${request.previousContext.title}".
+    
+    YOU MUST MAINTAIN EXACT VISUAL CONSISTENCY WITH THE PREVIOUS BOOK.
+    
+    PREVIOUS MAIN CHARACTER (COPY EXACTLY):
+    ${request.previousContext.characterDescription}
+    
+    ${request.previousContext.secondaryCharacterDescription ? `PREVIOUS SECONDARY CHARACTER (COPY EXACTLY):
+    ${request.previousContext.secondaryCharacterDescription}` : ''}
+    
+    CRITICAL RULES FOR SEQUEL:
+    1. The main character's appearance MUST be IDENTICAL to the previous book
+    2. SAME skin tone - do not change the character's skin color
+    3. SAME hair color and style
+    4. SAME clothing style and colors (unless story requires change)
+    5. SAME distinctive features and accessories
+    6. The art style MUST match: ${request.previousContext.artStyle}
+    
+    Failure to maintain visual consistency will confuse children reading the sequel!
     `;
   }
 
@@ -424,9 +470,26 @@ export const generatePageImage = async (
   artStyle: string,
   baseCharacterImageUrl?: string,
   isCover: boolean = false,
-  textToRender?: string
+  textToRender?: string,
+  colorPalette?: { skinTone: string; hairColor: string; primaryClothingColor: string; secondaryClothingColor: string; distinctiveMarkColor: string }
 ): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
+  // Build color lock section if palette is provided
+  const colorLockSection = colorPalette ? `
+      [COLOR LOCK - MANDATORY - DO NOT DEVIATE]:
+      These are the EXACT HEX colors to use for the character. ANY deviation is FORBIDDEN.
+      - SKIN TONE: ${colorPalette.skinTone} (EXACT match required)
+      - HAIR COLOR: ${colorPalette.hairColor} (EXACT match required)
+      - PRIMARY CLOTHING: ${colorPalette.primaryClothingColor} (EXACT match required)
+      - SECONDARY CLOTHING/ACCESSORY: ${colorPalette.secondaryClothingColor} (EXACT match required)
+      - DISTINCTIVE MARK: ${colorPalette.distinctiveMarkColor} (EXACT match required)
+      
+      VIOLATION EXAMPLES (FORBIDDEN):
+      - If skin is ${colorPalette.skinTone}, DO NOT make it lighter or darker
+      - If clothing is ${colorPalette.primaryClothingColor}, DO NOT change to any other shade
+      - DO NOT interpret colors differently - use EXACT HEX values above
+  ` : '';
 
   let finalPrompt = "";
   let modelName = "";
@@ -443,6 +506,7 @@ export const generatePageImage = async (
       
       [CAST DEFINITIONS]: 
       ${characterDescription}
+      ${colorLockSection}
       
       [SCENE DESCRIPTION]: ${actionPrompt}
       
@@ -461,9 +525,10 @@ export const generatePageImage = async (
       [CHARACTER]:
       1. Main character must match Reference Image (if provided)
       2. Character in dynamic, inviting pose
+      3. USE EXACT COLORS FROM COLOR LOCK SECTION ABOVE
       
       [TECHNICAL]: 8k resolution, cinematic lighting, vivid colors.
-      [NEGATIVE PROMPT]: subtitle, author name, page count, age range, English text, extra text, watermark, tagline, credits, מחבר, גיל, עמודים, numbers at bottom, description text, any text besides title.
+      [NEGATIVE PROMPT]: subtitle, author name, page count, age range, English text, extra text, watermark, tagline, credits, מחבר, גיל, עמודים, numbers at bottom, description text, any text besides title, wrong colors, different shades, changed clothing colors.
     `;
   } else {
     // INNER PAGE STRATEGY: Use Flash model, NO text.
@@ -476,6 +541,7 @@ export const generatePageImage = async (
       
       [CAST DEFINITIONS - CRITICAL FOR CONSISTENCY]: 
       ${characterDescription}
+      ${colorLockSection}
       
       [SCENE TO ILLUSTRATE]: 
       ${actionPrompt}
@@ -484,12 +550,13 @@ export const generatePageImage = async (
       1. SAME CHARACTER = IDENTICAL APPEARANCE in every illustration
       2. Main character MUST have the EXACT same:
          - Face shape and features
-         - Hair color and style
-         - Clothing and accessories
+         - Hair color and style (USE EXACT HEX FROM COLOR LOCK)
+         - Skin tone (USE EXACT HEX FROM COLOR LOCK)
+         - Clothing colors (USE EXACT HEX FROM COLOR LOCK)
          - Any distinctive marks mentioned in CAST DEFINITIONS
       3. If a Reference Image is provided, the character MUST match it EXACTLY
       4. Secondary character (if present) must also be consistent
-      5. DO NOT change character appearance between pages
+      5. DO NOT change character appearance between pages - COLORS MUST BE IDENTICAL
       
       [ILLUSTRATION RULES]:
       1. **ABSOLUTELY NO TEXT**: No text, captions, speech bubbles, or words
@@ -501,7 +568,7 @@ export const generatePageImage = async (
       Use varied camera angles (Close-up, Wide shot, Low angle) for visual variety.
       
       [TECHNICAL SPECS]: 8k resolution, cinematic lighting, vivid saturated colors.
-      [NEGATIVE]: text, writing, letters, words, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance.
+      [NEGATIVE]: text, writing, letters, words, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation.
     `;
   }
 
@@ -517,7 +584,21 @@ export const generatePageImage = async (
           data: matches[2]
         }
       });
-      parts.push({ text: "REFERENCE IMAGE INSTRUCTION: The image above is the MAIN character reference. Match this character exactly." });
+      parts.push({
+        text: `
+        CRITICAL REFERENCE IMAGE INSTRUCTION:
+        The image above shows the MAIN character's EXACT appearance. You MUST:
+        1. Match the character's face, body proportions, and pose style EXACTLY
+        2. Use the IDENTICAL skin tone - no lighter, no darker
+        3. Use the SAME hair color, style, and length
+        4. Use the EXACT same clothing colors and style
+        5. Keep ALL distinctive features (accessories, marks, etc.)
+        
+        This is a CHILDREN'S BOOK - the character MUST look the SAME on every page!
+        ANY deviation will confuse the children reading this book.
+        
+        COPY the character from the reference image as closely as possible.
+      ` });
     }
   }
 
@@ -546,14 +627,29 @@ export const generatePageImage = async (
 export const analyzeBookPdf = async (pdfBase64: string): Promise<PreviousBookContext> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-  const prompt = `
+  // STEP 1: Extract metadata with enhanced character descriptions
+  const metadataPrompt = `
     Analyze this PDF children's book. 
     Extract the following information to create a sequel context:
+    
     1. Title of the book.
     2. A summary of the plot.
-    3. A detailed visual description of the MAIN character (appearance, clothes, hair, colors).
-    4. A detailed visual description of any SECONDARY character (sidekick) if present.
-    5. The art style used.
+    3. A DETAILED visual description of the MAIN character. 
+       CRITICAL - You MUST include ALL of the following:
+       - SKIN TONE (be very specific: light/fair, medium, olive, tan, brown, dark, etc.)
+       - ETHNICITY/RACE if apparent from illustrations
+       - EXACT hair color (e.g., "dark brown", "blonde", "black", "red") and style (curly, straight, braids, etc.)
+       - EXACT eye color and shape
+       - Facial features (round face, freckles, glasses, etc.)
+       - Body type (tall, short, chubby, slim)
+       - EXACT clothing colors and style (e.g., "blue striped shirt", "yellow dress with polka dots")
+       - Any distinctive marks, accessories, or features (hat, scarf, birthmark, etc.)
+    4. A detailed visual description of any SECONDARY character (sidekick) if present - with same level of detail.
+    5. The art style used (e.g., "3D animation", "watercolor", "digital illustration").
+    
+    IMPORTANT: Visual consistency in sequels depends on PRECISE descriptions. 
+    Be EXTREMELY specific about skin tone, colors, and physical features.
+    If a character has light/fair skin, say so. If a character has dark/brown skin, say so.
     
     Return the result as a JSON object.
   `;
@@ -563,7 +659,10 @@ export const analyzeBookPdf = async (pdfBase64: string): Promise<PreviousBookCon
     properties: {
       title: { type: Type.STRING },
       summary: { type: Type.STRING },
-      characterDescription: { type: Type.STRING },
+      characterDescription: {
+        type: Type.STRING,
+        description: "Detailed character description including skin tone, hair color, eye color, clothing, and distinctive features"
+      },
       secondaryCharacterDescription: { type: Type.STRING },
       artStyle: { type: Type.STRING },
     },
@@ -571,12 +670,13 @@ export const analyzeBookPdf = async (pdfBase64: string): Promise<PreviousBookCon
   };
 
   try {
-    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+    // Extract metadata
+    const metadataResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } },
-          { text: prompt }
+          { text: metadataPrompt }
         ]
       },
       config: {
@@ -585,8 +685,56 @@ export const analyzeBookPdf = async (pdfBase64: string): Promise<PreviousBookCon
       }
     }));
 
-    if (!response.text) throw new Error("Failed to analyze PDF");
-    return JSON.parse(response.text) as PreviousBookContext;
+    if (!metadataResponse.text) throw new Error("Failed to analyze PDF");
+    const metadata = JSON.parse(metadataResponse.text) as PreviousBookContext;
+
+    // STEP 2: Extract cover image as reference
+    let baseCharacterImage: string | undefined;
+    try {
+      const imagePrompt = `
+        Look at the COVER PAGE (first page) of this PDF children's book.
+        Generate an EXACT reproduction of the main character as they appear on the cover.
+        The image should show ONLY the main character in the same pose, clothing, and style as the cover.
+        Maintain EXACT:
+        - Skin tone
+        - Hair color and style
+        - Clothing colors and style
+        - Art style
+        - Any distinctive features
+        
+        This image will be used as a reference for creating sequel illustrations with consistent character appearance.
+      `;
+
+      const imageResponse = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } },
+            { text: imagePrompt }
+          ]
+        }
+      }));
+
+      // Extract the generated image
+      for (const candidate of imageResponse.candidates || []) {
+        for (const part of candidate.content?.parts || []) {
+          if (part.inlineData && part.inlineData.data) {
+            baseCharacterImage = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            console.log("Successfully extracted character reference image from PDF");
+            break;
+          }
+        }
+        if (baseCharacterImage) break;
+      }
+    } catch (imageError) {
+      console.warn("Could not extract reference image from PDF, continuing with text description only:", imageError);
+      // Continue without the image - text description will still be used
+    }
+
+    return {
+      ...metadata,
+      baseCharacterImage
+    };
   } catch (error: any) {
     console.error("Error analyzing PDF:", error);
     handleFatalError(error);

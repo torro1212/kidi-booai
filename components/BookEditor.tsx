@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useMemo, useRef, useEffect } from 'react'
-import { Book, BookPage } from '@/types'
-import { generatePageImage, generatePageAudio } from '@/services/geminiService'
+import { Book, BookPage, PreviousBookContext } from '@/types'
+import { generatePageImage, generatePageAudio, analyzeBookPdf } from '@/services/geminiService'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
@@ -12,6 +12,7 @@ interface BookEditorProps {
   onUpdateBook: (updatedBook: Book) => void;
   onPreview: () => void;
   onBack: () => void;
+  onCreateSequel?: (book: Book) => void;
 }
 
 // Helper for ZIP Export (Same as Viewer)
@@ -60,7 +61,7 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
   return new Blob([headerBuffer, dataBuffer], { type: 'audio/wav' });
 }
 
-const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, onBack }) => {
+const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, onBack, onCreateSequel }) => {
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
   const [isRegenerating, setIsRegenerating] = useState<Set<number>>(new Set());
   const [globalLoading, setGlobalLoading] = useState(false);
@@ -68,6 +69,11 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Sequel dropdown state
+  const [showSequelMenu, setShowSequelMenu] = useState(false);
+  const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
+  const sequelFileInputRef = useRef<HTMLInputElement>(null);
 
   const fullCharacterDescription = useMemo(() => {
     let desc = `Main Character: ${book.metadata.mainCharacterDescription}.`;
@@ -92,6 +98,78 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
   const selectAll = () => {
     if (selectedPages.size === book.pages.length) { setSelectedPages(new Set()); }
     else { setSelectedPages(new Set(book.pages.map((_, i) => i))); }
+  };
+
+  // Helper to read file as base64
+  const readFileAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Handle file upload for sequel
+  const handleSequelFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onCreateSequel) return;
+    setShowSequelMenu(false);
+
+    if (file.type === 'application/json') {
+      // Handle JSON
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const json = JSON.parse(event.target?.result as string) as Book;
+          if (json.metadata && json.pages) {
+            // Create context from JSON and trigger sequel
+            const context: PreviousBookContext = {
+              title: json.metadata.title,
+              summary: json.pages.map(p => p.hebrewText).join('\n'),
+              characterDescription: json.metadata.mainCharacterDescription,
+              secondaryCharacterDescription: json.metadata.secondaryCharacterDescription,
+              artStyle: json.metadata.artStyle,
+              baseCharacterImage: json.metadata.baseCharacterImageUrl || json.pages.find(p => p.generatedImageUrl)?.generatedImageUrl
+            };
+            // Pass as a "fake" book with context attached for the onCreateSequel handler
+            const fakeBook = { ...book, _sequelContext: context } as any;
+            onCreateSequel(fakeBook);
+          } else {
+            alert("קובץ JSON לא תקין. נא להעלות קובץ שנוצר באפליקציה.");
+          }
+        } catch (err) {
+          alert("שגיאה בקריאת הקובץ");
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+    } else if (file.type === 'application/pdf') {
+      // Handle PDF
+      setIsAnalyzingFile(true);
+      try {
+        const base64 = await readFileAsBase64(file);
+        const context = await analyzeBookPdf(base64);
+        // Pass as a "fake" book with context attached
+        const fakeBook = { ...book, _sequelContext: context } as any;
+        onCreateSequel(fakeBook);
+      } catch (err) {
+        console.error(err);
+        alert("לא הצלחנו לנתח את ה-PDF. אנא נסה שוב.");
+      } finally {
+        setIsAnalyzingFile(false);
+      }
+    } else {
+      alert("נא להעלות קובץ JSON או PDF בלבד.");
+    }
+    // Reset file input
+    if (sequelFileInputRef.current) {
+      sequelFileInputRef.current.value = '';
+    }
   };
 
   const handlePromptChange = (index: number, newPrompt: string) => {
@@ -135,17 +213,29 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
           book.metadata.artStyle,
           referenceImage || undefined,
           isCover,
-          textToRender
+          textToRender,
+          book.metadata.characterColorPalette
         );
 
         if (url) {
           workingPages[i] = { ...workingPages[i], generatedImageUrl: url };
 
-          if (!referenceImage && (i === 0 || i === 1)) {
+          // Save first INNER page (not cover) as permanent reference for character consistency
+          // Cover (i=0) uses a different model and includes text, so we prefer page 1
+          if (!book.metadata.baseCharacterImageUrl && i === 1) {
+            console.log("Saving page 1 as character reference image");
             referenceImage = url;
+            onUpdateBook({
+              ...book,
+              pages: [...workingPages],
+              metadata: { ...book.metadata, baseCharacterImageUrl: url }
+            });
+          } else {
+            if (!referenceImage && (i === 0 || i === 1)) {
+              referenceImage = url;
+            }
+            onUpdateBook({ ...book, pages: [...workingPages] });
           }
-
-          onUpdateBook({ ...book, pages: [...workingPages] });
         }
       } catch (error) {
         console.error(`Failed to generate image for page ${i}`, error);
@@ -275,7 +365,8 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
             book.metadata.artStyle,
             referenceImage || undefined,
             isCover,
-            textToRender
+            textToRender,
+            book.metadata.characterColorPalette
           ) || undefined;
           if (imgUrl) {
             updatedPages[i].generatedImageUrl = imgUrl;
@@ -347,6 +438,44 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
 
           <div className="flex items-center gap-3">
             <div className="text-xs text-slate-400 mr-2 hidden sm:block">{selectedPages.size} נבחרו</div>
+            {onCreateSequel && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSequelMenu(!showSequelMenu)}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition-all shadow-md flex items-center gap-2"
+                  title="צור ספר המשך"
+                >
+                  🔄 צור ספר המשך ▾
+                </button>
+
+                {/* Dropdown Menu */}
+                {showSequelMenu && (
+                  <div className="absolute top-full mt-2 right-0 bg-slate-700 rounded-lg shadow-xl border border-slate-600 overflow-hidden z-50 min-w-[200px]">
+                    <button
+                      onClick={() => { setShowSequelMenu(false); onCreateSequel(book); }}
+                      className="w-full px-4 py-3 text-right text-sm text-white hover:bg-slate-600 transition-colors flex items-center gap-2"
+                    >
+                      📖 מהספר הנוכחי
+                    </button>
+                    <button
+                      onClick={() => { setShowSequelMenu(false); sequelFileInputRef.current?.click(); }}
+                      className="w-full px-4 py-3 text-right text-sm text-white hover:bg-slate-600 transition-colors flex items-center gap-2 border-t border-slate-600"
+                    >
+                      📂 העלה קובץ (PDF/JSON)
+                    </button>
+                  </div>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  ref={sequelFileInputRef}
+                  type="file"
+                  accept=".json,.pdf"
+                  onChange={handleSequelFileUpload}
+                  className="hidden"
+                />
+              </div>
+            )}
             <button onClick={handleDownloadZIP} disabled={isExporting || globalLoading} className="bg-kid-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-all shadow-md flex items-center gap-2 disabled:opacity-50">
               {isExporting ? <span className="animate-spin">⏳</span> : '📦'} הורד ZIP
             </button>
@@ -430,6 +559,16 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-kid-blue border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
             <h3 className="text-2xl font-bold font-fredoka">{exportProgress}</h3>
+          </div>
+        </div>
+      )}
+
+      {isAnalyzingFile && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/90 flex items-center justify-center text-white">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h3 className="text-2xl font-bold font-fredoka">מנתח את הספר...</h3>
+            <p className="text-slate-400 mt-2">מחלץ דמויות וסגנון אמנותי</p>
           </div>
         </div>
       )}
