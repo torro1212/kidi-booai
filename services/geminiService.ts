@@ -491,6 +491,9 @@ export const generatePageImage = async (
       - DO NOT interpret colors differently - use EXACT HEX values above
   ` : '';
 
+  // Detect if this is comic strip style
+  const isComicStyle = artStyle.toLowerCase().includes('comic');
+
   let finalPrompt = "";
   let modelName = "";
   let imageConfig = {};
@@ -530,6 +533,20 @@ export const generatePageImage = async (
       [TECHNICAL]: 8k resolution, cinematic lighting, vivid colors.
       [NEGATIVE PROMPT]: subtitle, author name, page count, age range, English text, extra text, watermark, tagline, credits, מחבר, גיל, עמודים, numbers at bottom, description text, any text besides title, wrong colors, different shades, changed clothing colors.
     `;
+
+    // Add comic-specific instructions for cover
+    if (isComicStyle) {
+      finalPrompt += `
+      
+      [COMIC BOOK COVER STYLE - SPECIAL INSTRUCTIONS]:
+      This is a COMIC BOOK cover, NOT a 4-panel layout.
+      - Single heroic illustration (NO panels on the cover)
+      - Bold, dynamic character pose
+      - Vibrant action-oriented composition
+      - Classic comic book cover aesthetic (think superhero comics)
+      - Action lines, dramatic lighting, eye-catching colors
+      `;
+    }
   } else {
     // INNER PAGE STRATEGY: Use Flash model, NO text.
     modelName = 'gemini-2.5-flash-image';
@@ -570,6 +587,65 @@ export const generatePageImage = async (
       [TECHNICAL SPECS]: 8k resolution, cinematic lighting, vivid saturated colors.
       [NEGATIVE]: text, writing, letters, words, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation.
     `;
+
+    // Add 4-panel comic layout instructions if comic style
+    if (isComicStyle) {
+      finalPrompt += `
+      
+      [COMIC STRIP 4-PANEL LAYOUT - CRITICAL REQUIREMENTS]:
+      
+      **LAYOUT STRUCTURE:**
+      - Divide the ENTIRE canvas into EXACTLY 4 EQUAL RECTANGULAR PANELS in a 2x2 GRID
+      - Top-left panel (Panel 1), Top-right panel (Panel 2)
+      - Bottom-left panel (Panel 3), Bottom-right panel (Panel 4)
+      - Each panel is approximately 50% width × 50% height of the total canvas
+      
+      **PANEL BORDERS:**
+      - THICK BLACK BORDERS around each panel (classic comic book style)
+      - WHITE GUTTERS (space) between panels of approximately 3-5% of canvas width
+      - Clean, professional comic strip appearance
+      
+      **SEQUENTIAL STORYTELLING (CRITICAL):**
+      Based on the scene description above, show 4 DIFFERENT MOMENTS or ANGLES:
+      
+      Panel 1: ESTABLISHING SHOT - Set the scene, show where we are
+      Panel 2: CHARACTER ACTION - Main character doing the primary action
+      Panel 3: REACTION/CONSEQUENCE - Show what happens next or a different angle
+      Panel 4: RESOLUTION/IMPACT - Final moment, emotional beat, or wide shot
+      
+      **SEQUENTIAL FLOW EXAMPLES:**
+      - If scene is "child discovers a magic door":
+        P1: Wide shot of child in room
+        P2: Close-up of child noticing glowing door
+        P3: Child's hand reaching for doorknob
+        P4: Door opening with magical light bursting out
+      
+      - If scene is "character jumping over obstacle":
+        P1: Character running toward obstacle
+        P2: Character mid-jump (from side)
+        P3: Landing safely (different angle)
+        P4: Character celebrating or continuing journey
+      
+      **CHARACTER CONSISTENCY ACROSS PANELS:**
+      - SAME character appearance in ALL 4 panels
+      - SAME colors (use COLOR LOCK section)
+      - Characters may be in different positions/angles but IDENTICAL visual design
+      
+      **VISUAL VARIETY BETWEEN PANELS:**
+      - Vary camera angles: close-up, medium shot, wide shot, over-shoulder
+      - Vary perspectives: high angle, low angle, straight on
+      - Each panel should feel VISUALLY DISTINCT but part of same sequence
+      
+      **WHAT TO AVOID:**
+      - DO NOT make 4 identical panels with slight variations
+      - DO NOT add speech bubbles or text (this is covered by the main NEGATIVE prompt)
+      - DO NOT make panels of different sizes (must be equal 2x2 grid)
+      - DO NOT skip panel borders or gutters
+      - DO NOT create single large illustration (MUST be 4 distinct panels)
+      
+      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language.
+      `;
+    }
   }
 
   const parts: any[] = [{ text: finalPrompt }];

@@ -19,6 +19,7 @@ const ART_STYLES = [
   { id: 'Pencil', label: '✏️ איור צבעוני', value: 'Vibrant colored pencil drawing, detailed, happy, storybook illustration' },
   { id: 'Pixel', label: '👾 פיקסל ארט', value: 'Retro 8-bit pixel art, vibrant, arcade colors, cute' },
   { id: 'Vector', label: '🔷 וקטורי מודרני', value: 'Modern flat vector art, clean curves, bold saturated colors, geometric happiness' },
+  { id: 'Comic4Panel', label: '📰 קומיקס 4 פאנלים', value: 'Comic strip layout with 4 sequential panels arranged in 2x2 grid. Each panel shows a different moment or camera angle of the same scene. Clear black panel borders with white gutters between panels. Dynamic action poses, expressive characters, vibrant colors, classic comic book aesthetic with speech-less sequential storytelling.' },
 ];
 
 const VOICE_OPTIONS = [
@@ -347,8 +348,8 @@ const CreationForm: React.FC<CreationFormProps> = ({ onSubmit, isLoading }) => {
                   type="button"
                   onClick={() => setAgeRange(age)}
                   className={`py-3 px-4 rounded-2xl font-bold text-lg transition-all ${ageRange === age
-                      ? 'bg-kid-blue text-white shadow-lg scale-105'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    ? 'bg-kid-blue text-white shadow-lg scale-105'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                     }`}
                 >
                   {age}
@@ -376,8 +377,8 @@ const CreationForm: React.FC<CreationFormProps> = ({ onSubmit, isLoading }) => {
                   type="button"
                   onClick={() => setSelectedStyle(style.id)}
                   className={`py-2 px-3 rounded-xl font-bold text-sm sm:text-base transition-all border-2 ${selectedStyle === style.id
-                      ? 'bg-white border-kid-orange text-kid-orange shadow-md scale-105'
-                      : 'bg-slate-50 border-transparent text-slate-600 hover:bg-slate-100'
+                    ? 'bg-white border-kid-orange text-kid-orange shadow-md scale-105'
+                    : 'bg-slate-50 border-transparent text-slate-600 hover:bg-slate-100'
                     }`}
                 >
                   {style.label}
@@ -417,8 +418,8 @@ const CreationForm: React.FC<CreationFormProps> = ({ onSubmit, isLoading }) => {
                     key={voice.id}
                     onClick={() => setSelectedVoice(voice.id)}
                     className={`flex items-center justify-between p-3 rounded-xl transition-all border cursor-pointer ${selectedVoice === voice.id
-                        ? 'bg-white border-kid-blue text-kid-blue shadow-md'
-                        : 'bg-blue-50/50 border-transparent text-slate-600 hover:bg-blue-100'
+                      ? 'bg-white border-kid-blue text-kid-blue shadow-md'
+                      : 'bg-blue-50/50 border-transparent text-slate-600 hover:bg-blue-100'
                       }`}
                   >
                     <div className="flex items-center gap-3">
