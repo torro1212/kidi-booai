@@ -24,6 +24,13 @@ export interface BookMetadata {
   secondaryCharacterDistinctiveMark?: string; // New: Unique visual anchor for sidekick
   artStyle: string;
   keyObjectDescription: string;
+  characterColorPalette?: {
+    skinTone: string;
+    hairColor: string;
+    primaryClothingColor: string;
+    secondaryClothingColor: string;
+    distinctiveMarkColor: string;
+  };
   baseCharacterImageUrl?: string;
   titlePrimaryColor: string;
   titleSecondaryColor: string;
