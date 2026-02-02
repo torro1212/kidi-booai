@@ -214,7 +214,8 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
           referenceImage || undefined,
           isCover,
           textToRender,
-          book.metadata.characterColorPalette
+          book.metadata.characterColorPalette,
+          isCover ? undefined : workingPages[i].hebrewText
         );
 
         if (url) {
@@ -366,7 +367,8 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
             referenceImage || undefined,
             isCover,
             textToRender,
-            book.metadata.characterColorPalette
+            book.metadata.characterColorPalette,
+            isCover ? undefined : updatedPages[i].hebrewText
           ) || undefined;
           if (imgUrl) {
             updatedPages[i].generatedImageUrl = imgUrl;

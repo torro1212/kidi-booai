@@ -225,7 +225,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
         bookRef.current.metadata.artStyle,
         referenceToUse || undefined,
         isCover,
-        textToRender
+        textToRender,
+        bookRef.current.metadata.characterColorPalette,
+        isCover ? undefined : bookRef.current.pages[pageIndex].hebrewText
       );
 
       if (url) {
@@ -262,7 +264,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
         bookRef.current.metadata.artStyle,
         referenceToUse || undefined,
         isCover,
-        textToRender
+        textToRender,
+        bookRef.current.metadata.characterColorPalette,
+        isCover ? undefined : bookRef.current.pages[pageIndex].hebrewText
       );
 
       if (url) {
@@ -385,7 +389,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
             book.metadata.artStyle,
             (referenceToUse || undefined) as string | undefined,
             isCover,
-            textToRender
+            textToRender,
+            book.metadata.characterColorPalette,
+            isCover ? undefined : book.pages[i].hebrewText
           );
           if (newUrl) {
             imgUrl = newUrl;
@@ -520,7 +526,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
             book.metadata.artStyle,
             (ref || undefined) as string | undefined,
             isCover,
-            textToRender
+            textToRender,
+            book.metadata.characterColorPalette,
+            isCover ? undefined : book.pages[i].hebrewText
           );
           if (newUrl) { imgUrl = newUrl; setImages(prev => ({ ...prev, [i]: newUrl })); updateBookState(i, newUrl); }
         }

@@ -471,7 +471,8 @@ export const generatePageImage = async (
   baseCharacterImageUrl?: string,
   isCover: boolean = false,
   textToRender?: string,
-  colorPalette?: { skinTone: string; hairColor: string; primaryClothingColor: string; secondaryClothingColor: string; distinctiveMarkColor: string }
+  colorPalette?: { skinTone: string; hairColor: string; primaryClothingColor: string; secondaryClothingColor: string; distinctiveMarkColor: string },
+  hebrewText?: string
 ): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
@@ -636,14 +637,35 @@ export const generatePageImage = async (
       - Vary perspectives: high angle, low angle, straight on
       - Each panel should feel VISUALLY DISTINCT but part of same sequence
       
+      **TEXT CAPTIONS IN PANELS (CRITICAL FOR COMIC STYLE):**
+      The Hebrew text for this page is: "${hebrewText || ''}"
+      
+      DIVIDE THIS TEXT INTO 4 PARTS and add a text caption strip at the BOTTOM of EACH panel:
+      - Each panel should have a SMALL HORIZONTAL STRIP at the bottom (approximately 10-15% of panel height)
+      - This strip should have a WHITE or LIGHT BACKGROUND
+      - Text should be in CLEAR, READABLE HEBREW FONT
+      - Text color: BLACK or DARK for contrast
+      - Split the Hebrew text logically across the 4 panels to match the visual progression
+      - Panel 1: First part of the text
+      - Panel 2: Second part
+      - Panel 3: Third part  
+      - Panel 4: Final part
+      
+      **TEXT STRIP FORMAT:**
+      - Position: At the VERY BOTTOM of each panel
+      - Background: Light colored strip (white, cream, or light gray)
+      - Text: Hebrew, readable size, centered or right-aligned
+      - Classic comic book caption style
+      
       **WHAT TO AVOID:**
       - DO NOT make 4 identical panels with slight variations
-      - DO NOT add speech bubbles or text (this is covered by the main NEGATIVE prompt)
+      - DO NOT add speech bubbles (only use bottom caption strips)
       - DO NOT make panels of different sizes (must be equal 2x2 grid)
       - DO NOT skip panel borders or gutters
       - DO NOT create single large illustration (MUST be 4 distinct panels)
+      - DO NOT forget the text caption strip at the bottom of EACH panel
       
-      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language.
+      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language with text captions.
       `;
     }
   }
