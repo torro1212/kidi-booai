@@ -131,8 +131,9 @@ export default function Home() {
 
                 {currentView === AppView.HOME && (
                     <footer className="bg-white py-8 border-t border-slate-100">
-                        <div className="max-w-7xl mx-auto px-4 text-center text-slate-400">
+                        <div className="max-w-7xl mx-auto px-4 text-center text-slate-400 relative">
                             <p>© {new Date().getFullYear()} KidCraft AI. Making learning magical.</p>
+                            <p className="text-xs text-slate-300 mt-2">v2.1</p>
                         </div>
                     </footer>
                 )}
