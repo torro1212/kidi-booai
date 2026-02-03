@@ -63,9 +63,9 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
             {/* Top-left panel text */}
             <div className="absolute" style={{
                 left: '3%',
-                top: '39%',
+                top: '43%',
                 width: '44%',
-                height: '10%',
+                height: '7%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -83,9 +83,9 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
             {/* Top-right panel text */}
             <div className="absolute" style={{
                 left: '53%',
-                top: '39%',
+                top: '43%',
                 width: '44%',
-                height: '10%',
+                height: '7%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -103,9 +103,9 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
             {/* Bottom-left panel text */}
             <div className="absolute" style={{
                 left: '3%',
-                top: '89%',
+                top: '93%',
                 width: '44%',
-                height: '10%',
+                height: '7%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -123,9 +123,9 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
             {/* Bottom-right panel text */}
             <div className="absolute" style={{
                 left: '53%',
-                top: '89%',
+                top: '93%',
                 width: '44%',
-                height: '10%',
+                height: '7%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
