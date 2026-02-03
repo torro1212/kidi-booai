@@ -637,30 +637,37 @@ export const generatePageImage = async (
       - Vary perspectives: high angle, low angle, straight on
       - Each panel should feel VISUALLY DISTINCT but part of same sequence
       
-      **EMPTY CAPTION STRIPS IN PANELS (CRITICAL FOR COMIC STYLE):**
-      Each of the 4 panels MUST include an EMPTY CAPTION STRIP at the bottom:
-      - Reserve a SMALL HORIZONTAL STRIP at the bottom of each panel (approximately 12-15% of panel height)
-      - This strip should be COMPLETELY EMPTY with a clean WHITE or LIGHT CREAM background
-      - NO TEXT should appear in this strip (text will be added by the UI later)
-      - The strip should look like a classic comic book caption box ready for text
-      - Border: Thin line separating the caption strip from the image above (optional)
+      **TEXT IN CAPTION STRIPS (CRITICAL FOR COMIC STYLE):**
+      The Hebrew text for this page is: "${hebrewText || ''}"
       
-      **CAPTION STRIP VISUAL:**
-      - Each panel's bottom 12-15% should be a clean, empty space
-      - Light background (white, off-white, or light cream)
-      - The main illustration occupies the top 85-88% of each panel
-      - This creates space for text overlay that will be added later
+      IMPORTANT: Add this text INTO the caption strips at the bottom of each panel:
+      - Each panel has a CAPTION STRIP at the bottom (12-15% of panel height)
+      - Caption strip background: WHITE or LIGHT CREAM
+      - Text: BLACK, BOLD, READABLE Hebrew font
+      - Split the Hebrew text into 4 LOGICAL parts across the panels
+      - Panel 1 (top-left): First part
+      - Panel 2 (top-right): Second part  
+      - Panel 3 (bottom-left): Third part
+      - Panel 4 (bottom-right): Fourth part
+      
+      **TEXT FORMATTING IN STRIPS:**
+      - Text MUST be inside the white caption strip, centered
+      - Font: Bold, clear, easily readable
+      - Color: Black or dark gray for maximum contrast
+      - Direction: Hebrew (right-to-left)
+      - Size: Large enough to read comfortably
+      - DO NOT leave caption strips empty - they MUST contain text
       
       **WHAT TO AVOID:**
       - DO NOT make 4 identical panels with slight variations
-      - DO NOT add ANY text, speech bubbles, or captions (they will be added by UI)
+      - DO NOT add speech bubbles (only bottom caption strips)
       - DO NOT make panels of different sizes (must be equal 2x2 grid)
       - DO NOT skip panel borders or gutters
       - DO NOT create single large illustration (MUST be 4 distinct panels)
-      - DO NOT forget the empty caption strip at the bottom of EACH panel
-      - DO NOT fill the caption strip with text or images
+      - DO NOT forget to add text to ALL 4 caption strips
+      - DO NOT put text outside the caption strips
       
-      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language with empty caption strips for text overlay.
+      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language with Hebrew text embedded in caption strips.
       `;
     }
   }

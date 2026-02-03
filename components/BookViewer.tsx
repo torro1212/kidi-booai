@@ -643,16 +643,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
                  - Inner: Strictly square, top part of flex column.
               */}
               <div className={`relative w-full ${currentPageIndex === 0 ? 'h-full aspect-square' : 'aspect-square shrink-0'} bg-slate-100`}>
-                {/* Check if comic style and not cover */}
-                {book.metadata.artStyle.toLowerCase().includes('comic') && currentPageIndex !== 0 ? (
-                  <ComicImageWithText
-                    imageUrl={images[currentPageIndex]}
-                    text={currentPage.hebrewText}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
-                )}
+                <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
 
                 <button
                   onClick={handleRegenerateImage}
