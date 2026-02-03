@@ -46,10 +46,11 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <p className="text-center text-xs font-medium text-slate-900 px-1" style={{
-                    fontSize: 'clamp(8px, 1.2vw, 14px)',
-                    lineHeight: '1.2',
-                    direction: 'rtl'
+                <p className="text-center text-xs font-bold text-slate-900 px-2" style={{
+                    fontSize: 'clamp(9px, 1.3vw, 15px)',
+                    lineHeight: '1.3',
+                    direction: 'rtl',
+                    fontWeight: 700
                 }}>
                     {textParts[0]}
                 </p>
@@ -65,10 +66,11 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <p className="text-center text-xs font-medium text-slate-900 px-1" style={{
-                    fontSize: 'clamp(8px, 1.2vw, 14px)',
-                    lineHeight: '1.2',
-                    direction: 'rtl'
+                <p className="text-center text-xs font-bold text-slate-900 px-2" style={{
+                    fontSize: 'clamp(9px, 1.3vw, 15px)',
+                    lineHeight: '1.3',
+                    direction: 'rtl',
+                    fontWeight: 700
                 }}>
                     {textParts[1]}
                 </p>
@@ -84,10 +86,11 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <p className="text-center text-xs font-medium text-slate-900 px-1" style={{
-                    fontSize: 'clamp(8px, 1.2vw, 14px)',
-                    lineHeight: '1.2',
-                    direction: 'rtl'
+                <p className="text-center text-xs font-bold text-slate-900 px-2" style={{
+                    fontSize: 'clamp(9px, 1.3vw, 15px)',
+                    lineHeight: '1.3',
+                    direction: 'rtl',
+                    fontWeight: 700
                 }}>
                     {textParts[2]}
                 </p>
@@ -103,10 +106,11 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
                 alignItems: 'center',
                 justifyContent: 'center'
             }}>
-                <p className="text-center text-xs font-medium text-slate-900 px-1" style={{
-                    fontSize: 'clamp(8px, 1.2vw, 14px)',
-                    lineHeight: '1.2',
-                    direction: 'rtl'
+                <p className="text-center text-xs font-bold text-slate-900 px-2" style={{
+                    fontSize: 'clamp(9px, 1.3vw, 15px)',
+                    lineHeight: '1.3',
+                    direction: 'rtl',
+                    fontWeight: 700
                 }}>
                     {textParts[3]}
                 </p>
