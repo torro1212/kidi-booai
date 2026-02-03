@@ -6,6 +6,7 @@ import { generatePageImage, generatePageAudio, analyzeBookPdf } from '@/services
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
+import { ComicImageWithText } from '@/components/ComicImageWithText'
 
 interface BookEditorProps {
   book: Book;
@@ -507,7 +508,15 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
 
                 <div className="aspect-square bg-slate-900 relative">
                   {page.generatedImageUrl ? (
-                    <img src={page.generatedImageUrl} alt={`Page ${index}`} className="w-full h-full object-cover" />
+                    book.metadata.artStyle.toLowerCase().includes('comic') && index !== 0 ? (
+                      <ComicImageWithText
+                        imageUrl={page.generatedImageUrl}
+                        text={page.hebrewText}
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <img src={page.generatedImageUrl} alt={`Page ${index}`} className="w-full h-full object-cover" />
+                    )
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
                       <span className="text-4xl mb-2">🖼️</span>

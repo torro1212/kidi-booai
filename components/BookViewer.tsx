@@ -8,6 +8,7 @@ import DriveConnectButton from '@/components/DriveConnectButton'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
+import { ComicImageWithText } from '@/components/ComicImageWithText'
 
 interface BookViewerProps {
   book: Book;
@@ -642,7 +643,16 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
                  - Inner: Strictly square, top part of flex column.
               */}
               <div className={`relative w-full ${currentPageIndex === 0 ? 'h-full aspect-square' : 'aspect-square shrink-0'} bg-slate-100`}>
-                <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
+                {/* Check if comic style and not cover */}
+                {book.metadata.artStyle.toLowerCase().includes('comic') && currentPageIndex !== 0 ? (
+                  <ComicImageWithText
+                    imageUrl={images[currentPageIndex]}
+                    text={currentPage.hebrewText}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
+                )}
 
                 <button
                   onClick={handleRegenerateImage}
