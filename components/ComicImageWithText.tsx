@@ -8,17 +8,41 @@ interface ComicImageWithTextProps {
     className?: string;
 }
 
-// Simple text splitter - divides by words
+// Smarter text splitter - tries to split at sentence boundaries
 const splitTextIntoFour = (text: string): string[] => {
-    const words = text.split(' ').filter(w => w.trim());
-    const chunkSize = Math.ceil(words.length / 4);
+    // Try to split by sentences first
+    const sentences = text.split(/([.!?।]+\s+)/).filter(s => s.trim());
 
+    if (sentences.length >= 4) {
+        // We have enough sentences, distribute them
+        const parts: string[] = ['', '', '', ''];
+        const sentencesPerPart = Math.ceil(sentences.length / 4);
+
+        let partIndex = 0;
+        sentences.forEach((sentence, i) => {
+            if (partIndex < 3 && i > 0 && i % sentencesPerPart === 0) {
+                partIndex++;
+            }
+            parts[partIndex] += sentence;
+        });
+
+        return parts.map(p => p.trim()).filter(p => p);
+    }
+
+    // Fallback: split by words if not enough sentences
+    const words = text.split(' ').filter(w => w.trim());
+    if (words.length < 4) {
+        // Very short text, put one word per panel
+        return [...words, '', '', ''].slice(0, 4);
+    }
+
+    const chunkSize = Math.ceil(words.length / 4);
     return [
         words.slice(0, chunkSize).join(' '),
         words.slice(chunkSize, chunkSize * 2).join(' '),
         words.slice(chunkSize * 2, chunkSize * 3).join(' '),
         words.slice(chunkSize * 3).join(' ')
-    ].filter(part => part.trim()); // Remove empty parts
+    ].filter(part => part.trim());
 };
 
 export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl, text, className = '' }) => {
@@ -38,10 +62,10 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
 
             {/* Top-left panel text */}
             <div className="absolute" style={{
-                left: '2.5%',
-                top: '37.5%',
-                width: '45%',
-                height: '11%',
+                left: '3%',
+                top: '39%',
+                width: '44%',
+                height: '10%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -58,10 +82,10 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
 
             {/* Top-right panel text */}
             <div className="absolute" style={{
-                left: '52.5%',
-                top: '37.5%',
-                width: '45%',
-                height: '11%',
+                left: '53%',
+                top: '39%',
+                width: '44%',
+                height: '10%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -78,10 +102,10 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
 
             {/* Bottom-left panel text */}
             <div className="absolute" style={{
-                left: '2.5%',
-                top: '87.5%',
-                width: '45%',
-                height: '11%',
+                left: '3%',
+                top: '89%',
+                width: '44%',
+                height: '10%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -98,10 +122,10 @@ export const ComicImageWithText: React.FC<ComicImageWithTextProps> = ({ imageUrl
 
             {/* Bottom-right panel text */}
             <div className="absolute" style={{
-                left: '52.5%',
-                top: '87.5%',
-                width: '45%',
-                height: '11%',
+                left: '53%',
+                top: '89%',
+                width: '44%',
+                height: '10%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
