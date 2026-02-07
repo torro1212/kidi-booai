@@ -171,7 +171,10 @@ const bookSchema = {
         type: Type.OBJECT,
         properties: {
           pageNumber: { type: Type.INTEGER },
-          hebrewText: { type: Type.STRING },
+          hebrewText: {
+            type: Type.STRING,
+            description: "For non-comic books: the full Hebrew text. For comic books: a summary of approx 20 words (panels have individual captions)."
+          },
           imagePrompt: {
             type: Type.STRING,
             description: `Detailed ENGLISH visual scene description. CRITICAL REQUIREMENTS FOR VARIETY:
@@ -191,6 +194,50 @@ const bookSchema = {
             
             Make EVERY page visually DISTINCT!`
           },
+          // PANEL-FIRST: For comic books, each inner page has 4 panels
+          panels: {
+            type: Type.OBJECT,
+            description: `FOR COMIC ART STYLE ONLY: Generate exactly 4 panels for each inner page.
+            Hebrew RTL reading order: A=top-right, B=top-left, C=bottom-right, D=bottom-left.
+            Each panel is ONE visual moment with ONE standalone HEBREW caption.
+            CRITICAL: Each caption must be in HEBREW (עברית) ONLY. NO ENGLISH TEXT IN CAPTIONS!
+            CRITICAL: Each caption must describe ONLY that panel. NO continuation between panels.`,
+            properties: {
+              A: {
+                type: Type.OBJECT,
+                properties: {
+                  scene: { type: Type.STRING, description: "English scene description for panel A (top-right, first panel)" },
+                  caption: { type: Type.STRING, description: "כיתוב בעברית בלבד! HEBREW ONLY caption for panel A. Write in Hebrew (עברית). 5-9 words. NO connectors. Example: 'דני פתח את הדלת הענקית בסקרנות'" }
+                },
+                required: ["scene", "caption"]
+              },
+              B: {
+                type: Type.OBJECT,
+                properties: {
+                  scene: { type: Type.STRING, description: "English scene description for panel B (top-left, second panel)" },
+                  caption: { type: Type.STRING, description: "כיתוב בעברית בלבד! HEBREW ONLY caption for panel B. Write in Hebrew (עברית). 5-9 words. NO connectors. Example: 'כלב קטן וחמוד קפץ פתאום פנימה'" }
+                },
+                required: ["scene", "caption"]
+              },
+              C: {
+                type: Type.OBJECT,
+                properties: {
+                  scene: { type: Type.STRING, description: "English scene description for panel C (bottom-right, third panel)" },
+                  caption: { type: Type.STRING, description: "כיתוב בעברית בלבד! HEBREW ONLY caption for panel C. Write in Hebrew (עברית). 5-9 words. NO connectors. Example: 'הילד ירד לברכיים וחיבק את הכלב'" }
+                },
+                required: ["scene", "caption"]
+              },
+              D: {
+                type: Type.OBJECT,
+                properties: {
+                  scene: { type: Type.STRING, description: "English scene description for panel D (bottom-left, fourth panel)" },
+                  caption: { type: Type.STRING, description: "כיתוב בעברית בלבד! HEBREW ONLY caption for panel D. Write in Hebrew (עברית). 5-9 words. NO connectors. Example: 'שניהם ישבו יחד על הספה האדומה'" }
+                },
+                required: ["scene", "caption"]
+              }
+            },
+            required: ["A", "B", "C", "D"]
+          }
         },
         required: ["pageNumber", "hebrewText", "imagePrompt"],
       },
@@ -370,7 +417,45 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
   ✅ CORRECT imagePrompt: "Cozy kitchen, mother preparing meal at wooden table"
   ❌ WRONG imagePrompt: "Mother and main character in kitchen" (main character not in this scene!)
   
-  Remember: Quality over rhyming. Every word should have PURPOSE. Match images to TEXT!`;
+  Remember: Quality over rhyming. Every word should have PURPOSE. Match images to TEXT!
+  
+  ===== COMIC BOOK PANEL-FIRST GENERATION (FOR 4-PANEL COMIC ART STYLE) =====
+  
+  If the artStyle is "4-panel comic" or similar comic format:
+  
+  MANDATORY: For EVERY inner page (not cover), you MUST generate the 'panels' object with A/B/C/D.
+  
+  HEBREW RTL PANEL ORDER:
+  - A = top-right (first panel)
+  - B = top-left (second panel)
+  - C = bottom-right (third panel)
+  - D = bottom-left (fourth panel)
+  
+  PANEL GENERATION RULES (CRITICAL):
+  ⚠️ LANGUAGE: ALL CAPTIONS MUST BE IN HEBREW (עברית) ONLY! NO ENGLISH TEXT!
+  1. Each panel is ONE VISUAL MOMENT - a single action or scene
+  2. Each caption describes EXACTLY what happens in THAT SPECIFIC PANEL - IN HEBREW
+  3. Captions must be COMPLETELY STANDALONE - readable without other panels
+  4. NO CONTINUATION between panels - no "and then", "but", "so"
+  5. NO CONNECTORS at start: ו, ואז, אבל, כי, ש, לכן, אז, גם, רק
+  6. NO CONNECTORS at end
+  7. Each caption: EXACTLY 5-9 Hebrew words, max 65 characters (approx 20+ words per page total)
+  8. Each caption must be a COMPLETE THOUGHT in Hebrew matching the visual
+  
+  GOOD EXAMPLES:
+  Panel A: { scene: "Boy opens front door, surprised expression", caption: "דני פתח את הדלת בסקרנות" }
+  Panel B: { scene: "Small brown dog jumps into the room", caption: "כלב קטן קפץ לתוך הבית" }
+  Panel C: { scene: "Boy kneels down hugging the dog", caption: "דני חיבק את הכלב בשמחה" }
+  Panel D: { scene: "Boy and dog sitting together on couch", caption: "הם ישבו יחד על הספה" }
+  
+  BAD EXAMPLES (DO NOT DO THIS):
+  ❌ caption: "ואז הכלב נכנס" (starts with connector)
+  ❌ caption: "דני שמח כי" (ends with connector)
+  ❌ caption: "הוא המשיך ללכת ו" (incomplete, ends with connector)
+  ❌ caption: "דני ראה את מה שקרה אחר כך" (references other panels)
+  
+  TEST: If you swap panel B and D, the captions should NO LONGER make sense together.
+  This proves each caption is truly standalone.`;
 
   if (request.previousContext) {
     prompt += `
@@ -453,6 +538,157 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
 
       return { ...page, imagePrompt: refinedPrompt };
     });
+
+    // PANEL-FIRST: For comic books, derive panelCaptions from panels (generated directly by Gemini)
+    const isComicBook = book.metadata.artStyle.toLowerCase().includes('comic');
+    if (isComicBook) {
+      const { validateCaption, normalizeCaption } = await import('./captionService');
+
+      for (let i = 0; i < book.pages.length; i++) {
+        const page = book.pages[i];
+        const isCover = i === 0;
+
+        // Only process inner comic pages
+        if (!isCover && page.panels) {
+          // Derive panelCaptions from panels (validate and normalize each caption)
+          const panelCaptions = {
+            A: normalizeCaption(page.panels.A?.caption || ''),
+            B: normalizeCaption(page.panels.B?.caption || ''),
+            C: normalizeCaption(page.panels.C?.caption || ''),
+            D: normalizeCaption(page.panels.D?.caption || '')
+          };
+
+          // Validate each caption
+          const panelIds = ['A', 'B', 'C', 'D'] as const;
+          let hasValidationErrors = false;
+          let errorDetails: string[] = [];
+
+          for (const panelId of panelIds) {
+            const result = validateCaption(panelCaptions[panelId], panelId);
+            if (!result.valid) {
+              console.warn(`Page ${i + 1} Panel ${panelId} validation failed:`, result.errors);
+              hasValidationErrors = true;
+              errorDetails.push(...result.errors);
+            }
+          }
+
+          // If any caption fails validation (length, language, connectors), regenerate!
+          if (hasValidationErrors) {
+            console.warn(`Page ${i + 1}: Validation errors detected (${errorDetails.join('; ')}), regenerating captions...`);
+            try {
+              const { generateComicCaptions, extractPanelScenesFromPrompt } = await import('./captionService');
+              // Use panel scenes from the Gemini-generated panels
+              const panelScenes = [
+                { id: 'A' as const, scenePrompt: page.panels.A?.scene || '' },
+                { id: 'B' as const, scenePrompt: page.panels.B?.scene || '' },
+                { id: 'C' as const, scenePrompt: page.panels.C?.scene || '' },
+                { id: 'D' as const, scenePrompt: page.panels.D?.scene || '' }
+              ];
+              const hebrewCaptions = await generateComicCaptions({
+                pageId: String(i + 1),
+                panels: panelScenes,
+                targetAge: book.metadata.targetAge,
+                mainTheme: book.metadata.mainTheme
+              });
+              page.panelCaptions = hebrewCaptions;
+              console.log(`Page ${i + 1}: Regenerated Hebrew captions successfully`, hebrewCaptions);
+            } catch (error) {
+              console.error(`Failed to regenerate Hebrew captions for page ${i + 1}:`, error);
+              page.panelCaptions = {
+                A: 'תמונה ראשונה מרגשת ויפה מאוד',
+                B: 'תמונה שנייה שממשיכה את הסיפור',
+                C: 'תמונה חמודה שמראה שלב נוסף',
+                D: 'תמונה רביעית שמסיימת את הדף'
+              };
+              console.warn(`Page ${i + 1}: Used hardcoded Hebrew fallback due to regeneration failure.`);
+            }
+          } else {
+            page.panelCaptions = panelCaptions;
+            console.log(`Page ${i + 1}: Derived panelCaptions from panels (all Hebrew)`, panelCaptions);
+          }
+
+          // PAGE-LEVEL WORD COUNT VALIDATION (CRITICAL)
+          // Even if individual panels passed validation, check TOTAL words per page
+          const totalWords = [
+            page.panelCaptions.A,
+            page.panelCaptions.B,
+            page.panelCaptions.C,
+            page.panelCaptions.D
+          ]
+            .map(caption => caption.split(/\s+/).filter(Boolean).length)
+            .reduce((sum, count) => sum + count, 0);
+
+          console.log(`🔍 PAGE ${i + 1} WORD COUNT CHECK: ${totalWords} words total`);
+          console.log(`   A: "${page.panelCaptions.A}" (${page.panelCaptions.A.split(/\s+/).filter(Boolean).length} words)`);
+          console.log(`   B: "${page.panelCaptions.B}" (${page.panelCaptions.B.split(/\s+/).filter(Boolean).length} words)`);
+          console.log(`   C: "${page.panelCaptions.C}" (${page.panelCaptions.C.split(/\s+/).filter(Boolean).length} words)`);
+          console.log(`   D: "${page.panelCaptions.D}" (${page.panelCaptions.D.split(/\s+/).filter(Boolean).length} words)`);
+
+          const MIN_WORDS_PER_PAGE = 16;
+          if (totalWords < MIN_WORDS_PER_PAGE) {
+            console.warn(`Page ${i + 1}: TOTAL word count (${totalWords}) below minimum ${MIN_WORDS_PER_PAGE}, forcing regeneration...`);
+            try {
+              const { generateComicCaptions } = await import('./captionService');
+              const panelScenes = [
+                { id: 'A' as const, scenePrompt: page.panels.A?.scene || '' },
+                { id: 'B' as const, scenePrompt: page.panels.B?.scene || '' },
+                { id: 'C' as const, scenePrompt: page.panels.C?.scene || '' },
+                { id: 'D' as const, scenePrompt: page.panels.D?.scene || '' }
+              ];
+              const hebrewCaptions = await generateComicCaptions({
+                pageId: String(i + 1),
+                panels: panelScenes,
+                targetAge: book.metadata.targetAge,
+                mainTheme: book.metadata.mainTheme
+              });
+
+              // Validate total again
+              const newTotalWords = [hebrewCaptions.A, hebrewCaptions.B, hebrewCaptions.C, hebrewCaptions.D]
+                .map(c => c.split(/\s+/).filter(Boolean).length)
+                .reduce((s, n) => s + n, 0);
+
+              if (newTotalWords >= MIN_WORDS_PER_PAGE) {
+                page.panelCaptions = hebrewCaptions;
+                console.log(`Page ${i + 1}: Regenerated captions with ${newTotalWords} total words`);
+              } else {
+                console.warn(`Page ${i + 1}: Regeneration still below minimum (${newTotalWords} words), using extended fallback`);
+                page.panelCaptions = {
+                  A: 'זהו הפאנל הראשון בסיפור המיוחד והמרתק שלנו',
+                  B: 'כאן רואים את הפאנל השני המלא בפעולה',
+                  C: 'עכשיו הגענו אל הפאנל השלישי המעניין מאוד',
+                  D: 'ולסיום הנה הפאנל הרביעי והאחרון בדף'
+                };
+              }
+            } catch (error) {
+              console.error(`Failed to regenerate for word count on page ${i + 1}:`, error);
+              page.panelCaptions = {
+                A: 'זהו הפאנל הראשון בסיפור המיוחד והמרתק שלנו',
+                B: 'כאן רואים את הפאנל השני המלא בפעולה',
+                C: 'עכשיו הגענו אל הפאנל השלישי המעניין מאוד',
+                D: 'ולסיום הנה הפאנל הרביעי והאחרון בדף'
+              };
+            }
+          }
+
+        } else if (!isCover && !page.panels && page.hebrewText) {
+          // FALLBACK: If panels not generated, use legacy caption generation
+          console.warn(`Page ${i + 1}: No panels data, falling back to caption generation`);
+          try {
+            const { generateComicCaptions, extractPanelScenesFromPrompt } = await import('./captionService');
+            const panelScenes = extractPanelScenesFromPrompt(page.imagePrompt);
+            const captions = await generateComicCaptions({
+              pageId: String(i + 1),
+              panels: panelScenes,
+              targetAge: book.metadata.targetAge,
+              mainTheme: book.metadata.mainTheme
+            });
+            page.panelCaptions = captions;
+          } catch (error) {
+            console.error(`Failed to generate fallback captions for page ${i + 1}:`, error);
+          }
+        }
+      }
+    }
 
     // Don't save here - saved during export instead
     return book;
@@ -577,7 +813,7 @@ export const generatePageImage = async (
       5. DO NOT change character appearance between pages - COLORS MUST BE IDENTICAL
       
       [ILLUSTRATION RULES]:
-      1. **ABSOLUTELY NO TEXT**: No text, captions, speech bubbles, or words
+      1. **ABSOLUTELY NO TEXT**: No text, speech bubbles, or words
       2. **FULL BLEED**: Use entire canvas, no borders or margins
       3. **DYNAMIC COMPOSITION**: Use the camera angle specified in the scene description
       
@@ -586,7 +822,7 @@ export const generatePageImage = async (
       Use varied camera angles (Close-up, Wide shot, Low angle) for visual variety.
       
       [TECHNICAL SPECS]: 8k resolution, cinematic lighting, vivid saturated colors.
-      [NEGATIVE]: text, writing, letters, words, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation.
+      [NEGATIVE]: text, writing, letters, words, Hebrew text, Hebrew letters, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation, written content.
     `;
 
     // Add 4-panel comic layout instructions if comic style
@@ -607,21 +843,17 @@ export const generatePageImage = async (
       - Clean, professional comic strip appearance
       
       **SEQUENTIAL STORYTELLING (CRITICAL):**
-      Based on the scene description above, show 4 DIFFERENT MOMENTS or ANGLES:
+      Based on the SPECIFIC scene description above (Panel 1, Panel 2, etc.), show exactly those 4 moments.
       
-      Panel 1: ESTABLISHING SHOT - Set the scene, show where we are
-      Panel 2: CHARACTER ACTION - Main character doing the primary action
-      Panel 3: REACTION/CONSEQUENCE - Show what happens next or a different angle
-      Panel 4: RESOLUTION/IMPACT - Final moment, emotional beat, or wide shot
+      - Ensure VISUAL CONTINUITY between panels (same background, same lighting)
+      - Show clear progression of action
+      - Use dynamic angles as described in the prompt
       
-      **SEQUENTIAL FLOW EXAMPLES:**
-      - If scene is "child discovers a magic door":
-        P1: Wide shot of child in room
-        P2: Close-up of child noticing glowing door
-        P3: Child's hand reaching for doorknob
-        P4: Door opening with magical light bursting out
+      **Examples of good sequential flow:**
+      - Wide shot -> Close up -> Action -> Reaction
+      - Or whatever is specified in the [SCENE TO ILLUSTRATE] section above.
       
-      - If scene is "character jumping over obstacle":
+      FOLLOW THE PANEL DESCRIPTIONS EXACTLY.
         P1: Character running toward obstacle
         P2: Character mid-jump (from side)
         P3: Landing safely (different angle)
@@ -637,37 +869,23 @@ export const generatePageImage = async (
       - Vary perspectives: high angle, low angle, straight on
       - Each panel should feel VISUALLY DISTINCT but part of same sequence
       
-      **TEXT IN CAPTION STRIPS (CRITICAL FOR COMIC STYLE):**
-      The Hebrew text for this page is: "${hebrewText || ''}"
       
-      IMPORTANT: Add this text INTO the caption strips at the bottom of each panel:
-      - Each panel has a CAPTION STRIP at the bottom (12-15% of panel height)
-      - Caption strip background: WHITE or LIGHT CREAM
-      - Text: BLACK, BOLD, READABLE Hebrew font
-      - Split the Hebrew text into 4 LOGICAL parts across the panels
-      - Panel 1 (top-left): First part
-      - Panel 2 (top-right): Second part  
-      - Panel 3 (bottom-left): Third part
-      - Panel 4 (bottom-right): Fourth part
-      
-      **TEXT FORMATTING IN STRIPS:**
-      - Text MUST be inside the white caption strip, centered
-      - Font: Bold, clear, easily readable
-      - Color: Black or dark gray for maximum contrast
-      - Direction: Hebrew (right-to-left)
-      - Size: Large enough to read comfortably
-      - DO NOT leave caption strips empty - they MUST contain text
+      **NO TEXT AREAS - ABSOLUTE:**
+      - Do NOT draw empty white bars, empty rectangles, text boxes, or speech bubbles.
+      - The artwork in each panel must reach all the way to the bottom border.
+      - The application will overlay text later using canvas.
+      - The image must contain ZERO text of any kind.
       
       **WHAT TO AVOID:**
       - DO NOT make 4 identical panels with slight variations
-      - DO NOT add speech bubbles (only bottom caption strips)
+      - DO NOT add speech bubbles or text bubbles
+      - DO NOT write Hebrew text anywhere in the image
+      - DO NOT create any text areas or reserved spaces for text
       - DO NOT make panels of different sizes (must be equal 2x2 grid)
       - DO NOT skip panel borders or gutters
       - DO NOT create single large illustration (MUST be 4 distinct panels)
-      - DO NOT forget to add text to ALL 4 caption strips
-      - DO NOT put text outside the caption strips
       
-      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language with Hebrew text embedded in caption strips.
+      [COMIC TECHNICAL]: Clear panel separation, professional gutters, dynamic sequential storytelling, classic comic book visual language. NO text boxes, NO speech bubbles, and ZERO text in the image.
       `;
     }
   }

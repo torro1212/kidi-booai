@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
 import { ComicImageWithText } from '@/components/ComicImageWithText'
+import { composeComicImageWithCaptions } from '@/lib/comicComposer'
 
 interface BookViewerProps {
   book: Book;
@@ -169,7 +170,18 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
 
     setIsLoadingAudio(true);
     try {
-      const textToRead = currentPageIndex === 0 ? book.metadata.title : currentPage.hebrewText;
+      let textToRead = currentPageIndex === 0 ? book.metadata.title : currentPage.hebrewText;
+
+      // If comic page with panels, read panels in order (A->B->C->D)
+      if (currentPageIndex > 0 && currentPage.panelCaptions) {
+        textToRead = [
+          currentPage.panelCaptions.A,
+          currentPage.panelCaptions.B,
+          currentPage.panelCaptions.C,
+          currentPage.panelCaptions.D
+        ].join('. ');
+      }
+
       const buffer = await generatePageAudio(textToRead, ctx, voiceName);
       if (buffer) {
         setAudioBuffers(prev => ({ ...prev, [currentPageIndex]: buffer }));
@@ -403,30 +415,75 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
         }
 
         if (imgUrl) {
-          const canvas = await prepareExportCanvas(i, imgUrl);
-          const pngBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+          // COMIC EXPORT LOGIC: Use composite if it's a comic page (and not cover)
+          const isComicBook = book.metadata.artStyle.toLowerCase().includes('comic');
+          const isComicPage = isComicBook && !isCover && !!book.pages[i].hebrewText;
 
-          if (pngBlob) zip.file(i === 0 ? '00_COVER.png' : `PAGE_${String(i).padStart(2, '0')}.png`, pngBlob);
+          if (isComicPage) {
+            // Comic inner page: compositor only, no canvas
+            try {
+              const compositeDataUrl = await composeComicImageWithCaptions({
+                imageUrl: imgUrl,
+                captions: book.pages[i].panelCaptions,
+                text: book.pages[i].panelCaptions ? undefined : book.pages[i].hebrewText,
+                captionRatio: 0.15
+              });
 
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
+              // ZIP: PNG blob
+              const res = await fetch(compositeDataUrl);
+              const exportBlob = await res.blob();
+              zip.file(`PAGE_${String(i).padStart(2, '0')}.png`, exportBlob);
 
-          // PDF Layout
-          const canvasRatio = canvas.height / canvas.width;
-          const pdfImgHeight = pageWidth * canvasRatio;
+              // PDF: PNG format
+              const tempImg = new Image();
+              await new Promise((resolve, reject) => {
+                tempImg.onload = resolve;
+                tempImg.onerror = reject;
+                tempImg.src = compositeDataUrl;
+              });
+              const canvasRatio = (tempImg.naturalHeight || tempImg.height) / (tempImg.naturalWidth || tempImg.width);
+              const pdfImgHeight = pageWidth * canvasRatio;
 
-          // If height exceeds A4 (297mm), scale down to fit
-          let renderWidth = pageWidth;
-          let renderHeight = pdfImgHeight;
-          if (renderHeight > 297) {
-            const scale = 297 / renderHeight;
-            renderHeight = 297;
-            renderWidth = pageWidth * scale;
+              let renderWidth = pageWidth;
+              let renderHeight = pdfImgHeight;
+              if (renderHeight > 297) {
+                const scale = 297 / renderHeight;
+                renderHeight = 297;
+                renderWidth = pageWidth * scale;
+              }
+              const xOffset = (210 - renderWidth) / 2;
+
+              pdf.addImage(compositeDataUrl, 'PNG', xOffset, 0, renderWidth, renderHeight);
+              if (i < book.pages.length - 1) pdf.addPage();
+
+            } catch (err) {
+              console.error(`Comic composition failed for ZIP export on page ${i}:`, err);
+              throw new Error(`Failed to compose comic page ${i}. Aborting ZIP export.`);
+            }
+
+          } else {
+            // Standard export (Cover or non-comic)
+            const canvas = await prepareExportCanvas(i, imgUrl);
+            const exportBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            if (exportBlob) zip.file(i === 0 ? '00_COVER.png' : `PAGE_${String(i).padStart(2, '0')}.png`, exportBlob);
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const canvasRatio = canvas.height / canvas.width;
+            const pdfImgHeight = pageWidth * canvasRatio;
+
+            let renderWidth = pageWidth;
+            let renderHeight = pdfImgHeight;
+            if (renderHeight > 297) {
+              const scale = 297 / renderHeight;
+              renderHeight = 297;
+              renderWidth = pageWidth * scale;
+            }
+            const xOffset = (210 - renderWidth) / 2;
+
+            pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
+            if (i < book.pages.length - 1) pdf.addPage();
           }
-          const xOffset = (210 - renderWidth) / 2;
-
-          pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
-
-          if (i < book.pages.length - 1) pdf.addPage();
         }
 
         if (audioEnabled) {
@@ -534,23 +591,65 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
           if (newUrl) { imgUrl = newUrl; setImages(prev => ({ ...prev, [i]: newUrl })); updateBookState(i, newUrl); }
         }
         if (imgUrl) {
-          const canvas = await prepareExportCanvas(i, imgUrl);
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
+          const isComicInner = book.metadata.artStyle.toLowerCase().includes('comic') && !isCover && !!book.pages[i].hebrewText;
 
-          const canvasRatio = canvas.height / canvas.width;
-          const pdfImgHeight = pageWidth * canvasRatio;
+          if (isComicInner) {
+            // Comic inner page: Use compositor with PNG
+            try {
+              const compositeDataUrl = await composeComicImageWithCaptions({
+                imageUrl: imgUrl,
+                captions: book.pages[i].panelCaptions,
+                text: book.pages[i].panelCaptions ? undefined : book.pages[i].hebrewText,
+                captionRatio: 0.15
+              });
 
-          let renderWidth = pageWidth;
-          let renderHeight = pdfImgHeight;
-          if (renderHeight > 297) {
-            const scale = 297 / renderHeight;
-            renderHeight = 297;
-            renderWidth = pageWidth * scale;
+              // Load temp image to get dimensions
+              const tempImg = new Image();
+              await new Promise((resolve, reject) => {
+                tempImg.onload = resolve;
+                tempImg.onerror = reject;
+                tempImg.src = compositeDataUrl;
+              });
+              const canvasRatio = (tempImg.naturalHeight || tempImg.height) / (tempImg.naturalWidth || tempImg.width);
+              const pdfImgHeight = pageWidth * canvasRatio;
+
+              let renderWidth = pageWidth;
+              let renderHeight = pdfImgHeight;
+              if (renderHeight > 297) {
+                const scale = 297 / renderHeight;
+                renderHeight = 297;
+                renderWidth = pageWidth * scale;
+              }
+              const xOffset = (210 - renderWidth) / 2;
+
+              pdf.addImage(compositeDataUrl, 'PNG', xOffset, 0, renderWidth, renderHeight);
+              if (i < book.pages.length - 1) pdf.addPage();
+
+            } catch (err) {
+              console.error(`Comic composition failed for PDF page ${i}:`, err);
+              throw new Error(`Failed to compose comic page ${i}. Aborting PDF export.`);
+            }
+
+          } else {
+            // Standard export (Cover or non-comic)
+            const canvas = await prepareExportCanvas(i, imgUrl);
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+
+            const canvasRatio = canvas.height / canvas.width;
+            const pdfImgHeight = pageWidth * canvasRatio;
+
+            let renderWidth = pageWidth;
+            let renderHeight = pdfImgHeight;
+            if (renderHeight > 297) {
+              const scale = 297 / renderHeight;
+              renderHeight = 297;
+              renderWidth = pageWidth * scale;
+            }
+            const xOffset = (210 - renderWidth) / 2;
+
+            pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
+            if (i < book.pages.length - 1) pdf.addPage();
           }
-          const xOffset = (210 - renderWidth) / 2;
-
-          pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
-          if (i < book.pages.length - 1) pdf.addPage();
         }
       }
 
@@ -643,7 +742,16 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
                  - Inner: Strictly square, top part of flex column.
               */}
               <div className={`relative w-full ${currentPageIndex === 0 ? 'h-full aspect-square' : 'aspect-square shrink-0'} bg-slate-100`}>
-                <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
+                {/* Use ComicImageWithText for comic style books, regular img otherwise */}
+                {book.metadata.artStyle.toLowerCase().includes('comic') && currentPageIndex !== 0 && currentPage.hebrewText ? (
+                  <ComicImageWithText
+                    imageUrl={images[currentPageIndex]}
+                    text={currentPage.hebrewText}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <img src={images[currentPageIndex]} className="w-full h-full object-cover" />
+                )}
 
                 <button
                   onClick={handleRegenerateImage}

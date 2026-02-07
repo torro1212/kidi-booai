@@ -1,0 +1,93 @@
+{
+    "Book": {
+        "description": "Main object representing a generated story.",
+        "properties": {
+            "metadata": "BookMetadata",
+            "pages": "BookPage[]"
+        }
+    },
+    "BookMetadata": {
+        "description": "Static details about the book's setting, characters, and style.",
+        "properties": {
+            "title": "string (Hebrew)",
+            "targetAge": "string (e.g. '3-8')",
+            "mainTheme": "string",
+            "educationalMessage": "string",
+            "mainCharacterDescription": "string (Detailed English visual description used for consistency)",
+            "mainCharacterDistinctiveMark": "string (Unique visual anchor, e.g., 'Red Scarf')",
+            "secondaryCharacterDescription": "string (Optional sidekick description)",
+            "secondaryCharacterDistinctiveMark": "string (Optional sidekick anchor)",
+            "artStyle": "string",
+            "keyObjectDescription": "string",
+            "characterColorPalette": {
+                "skinTone": "string (HEX)",
+                "hairColor": "string (HEX)",
+                "primaryClothingColor": "string (HEX)",
+                "secondaryClothingColor": "string (HEX)",
+                "distinctiveMarkColor": "string (HEX)"
+            },
+            "baseCharacterImageUrl": "string (Data URL or Remote URL of reference image)",
+            "titlePrimaryColor": "string",
+            "titleSecondaryColor": "string",
+            "titleEffectTheme": "'magical' | 'natural' | 'tech' | 'classic' | 'playful' | 'elegant'",
+            "visualConsistencyGuide": {
+                "characterTraits": "string[]",
+                "objectTraits": "string[]",
+                "backgroundStyle": "string"
+            },
+            "audioConfig": {
+                "enabled": "boolean",
+                "voiceName": "string"
+            }
+        }
+    },
+    "BookPage": {
+        "description": "A single page in the book.",
+        "properties": {
+            "pageNumber": "number",
+            "hebrewText": "string",
+            "imagePrompt": "string (English generation prompt)",
+            "generatedImageUrl": "string (optional URL)"
+        }
+    },
+    "BookRequest": {
+        "description": "Payload sent to start generation.",
+        "properties": {
+            "ageRange": "string",
+            "topic": "string",
+            "pageCount": "number",
+            "artStyle": "string",
+            "previousContext": "PreviousBookContext (optional)",
+            "audioEnabled": "boolean",
+            "voiceName": "string"
+        }
+    },
+    "PreviousBookContext": {
+        "description": "Context extracted from a PDF/JSON for sequel generation.",
+        "properties": {
+            "title": "string",
+            "summary": "string",
+            "characterDescription": "string",
+            "secondaryCharacterDescription": "string",
+            "artStyle": "string",
+            "baseCharacterImage": "string"
+        }
+    },
+    "GenerationStatus": {
+        "enum": [
+            "IDLE",
+            "GENERATING_TEXT",
+            "GENERATING_IMAGES",
+            "SUCCESS",
+            "ERROR"
+        ]
+    },
+    "AppView": {
+        "enum": [
+            "HOME",
+            "CREATE",
+            "EDITOR",
+            "READING"
+        ]
+    }
+}

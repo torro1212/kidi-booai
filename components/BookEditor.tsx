@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
 import { ComicImageWithText } from '@/components/ComicImageWithText'
+import { composeComicImageWithCaptions } from '@/lib/comicComposer'
 
 interface BookEditorProps {
   book: Book;
@@ -89,6 +90,16 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
     }
     return desc;
   }, [book.metadata]);
+
+  // Helper to get dimensions from dataURL
+  const getDataUrlImageSize = (dataUrl: string): Promise<{ w: number; h: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height });
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  };
 
   const toggleSelection = (index: number) => {
     const newSet = new Set(selectedPages);
@@ -185,6 +196,20 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
     onUpdateBook({ ...book, pages: newPages });
   };
 
+  const handlePanelCaptionChange = (index: number, panel: 'A' | 'B' | 'C' | 'D', newText: string) => {
+    const newPages = [...book.pages];
+    if (!newPages[index].panelCaptions) return;
+
+    newPages[index] = {
+      ...newPages[index],
+      panelCaptions: {
+        ...newPages[index].panelCaptions!,
+        [panel]: newText
+      }
+    };
+    onUpdateBook({ ...book, pages: newPages });
+  };
+
   // Main generation function
   const generateImagesForIndices = async (indices: number[]) => {
     if (indices.length === 0) return;
@@ -208,8 +233,25 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
         const isCover = i === 0;
         const textToRender = isCover ? book.metadata.title : undefined;
 
+        // COMIC LOGIC: If we have panels, construct a strict 4-panel prompt
+        // Note: AI models generate LTR (Panel 1=TL, 2=TR). 
+        // Hebrew is RTL (A=TR, B=TL).
+        // So we must map: Panel 1 (TL) -> Scene B
+        //                Panel 2 (TR) -> Scene A
+        //                Panel 3 (BL) -> Scene D
+        //                Panel 4 (BR) -> Scene C
+        let promptToUse = workingPages[i].imagePrompt;
+        if (!isCover && workingPages[i].panels) {
+          const p = workingPages[i].panels!;
+          promptToUse = `comic strip 4-panel layout, 2x2 grid.
+Panel 1 (Top-Left): ${p.B?.scene || ''}
+Panel 2 (Top-Right): ${p.A?.scene || ''}
+Panel 3 (Bottom-Left): ${p.D?.scene || ''}
+Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
+        }
+
         const url = await generatePageImage(
-          workingPages[i].imagePrompt,
+          promptToUse,
           fullCharacterDescription,
           book.metadata.artStyle,
           referenceImage || undefined,
@@ -379,34 +421,86 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
         }
 
         if (imgUrl) {
-          const canvas = await prepareExportCanvas(i, imgUrl);
-          const pngBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-          if (pngBlob) {
-            zip.file(i === 0 ? '00_COVER.png' : `PAGE_${String(i).padStart(2, '0')}.png`, pngBlob);
+          const isCover = i === 0;
+          const isComicInner = book.metadata.artStyle.toLowerCase().includes('comic') && !isCover && updatedPages[i].hebrewText;
+
+          if (isComicInner) {
+            // COMIC INNER PAGE: Use compositor only, no canvas
+            try {
+              const compositeDataUrl = await composeComicImageWithCaptions({
+                imageUrl: imgUrl,
+                captions: updatedPages[i].panelCaptions,
+                text: updatedPages[i].panelCaptions ? undefined : updatedPages[i].hebrewText,
+                captionRatio: 0.15
+              });
+
+              // ZIP: PNG blob
+              const res = await fetch(compositeDataUrl);
+              const exportBlob = await res.blob();
+              zip.file(`PAGE_${String(i).padStart(2, '0')}.png`, exportBlob);
+
+              // PDF: PNG format
+              const { w, h } = await getDataUrlImageSize(compositeDataUrl);
+              const ratio = h / w;
+              let renderWidth = pageWidth;
+              let renderHeight = pageWidth * ratio;
+
+              if (renderHeight > 297) {
+                const scale = 297 / renderHeight;
+                renderHeight = 297;
+                renderWidth = pageWidth * scale;
+              }
+              const xOffset = (210 - renderWidth) / 2;
+
+              pdf.addImage(compositeDataUrl, 'PNG', xOffset, 0, renderWidth, renderHeight);
+              if (i < book.pages.length - 1) pdf.addPage();
+
+            } catch (err) {
+              console.error(`Comic composition failed for export on page ${i}:`, err);
+              throw new Error(`Failed to compose comic page ${i}. Aborting export.`);
+            }
+
+          } else {
+            // STANDARD EXPORT (Cover or non-comic)
+            const canvas = await prepareExportCanvas(i, imgUrl);
+            const exportBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+
+            if (exportBlob) {
+              zip.file(i === 0 ? '00_COVER.png' : `PAGE_${String(i).padStart(2, '0')}.png`, exportBlob);
+            }
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.9);
+            const canvasRatio = canvas.height / canvas.width;
+            const pdfImgHeight = pageWidth * canvasRatio;
+
+            let renderWidth = pageWidth;
+            let renderHeight = pdfImgHeight;
+            if (renderHeight > 297) {
+              const scale = 297 / renderHeight;
+              renderHeight = 297;
+              renderWidth = pageWidth * scale;
+            }
+            const xOffset = (210 - renderWidth) / 2;
+
+            pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
+            if (i < book.pages.length - 1) pdf.addPage();
           }
-
-          // Add to PDF
-          const imgData = canvas.toDataURL('image/jpeg', 0.9);
-          const canvasRatio = canvas.height / canvas.width;
-          const pdfImgHeight = pageWidth * canvasRatio;
-
-          let renderWidth = pageWidth;
-          let renderHeight = pdfImgHeight;
-          if (renderHeight > 297) {
-            const scale = 297 / renderHeight;
-            renderHeight = 297;
-            renderWidth = pageWidth * scale;
-          }
-          const xOffset = (210 - renderWidth) / 2;
-
-          pdf.addImage(imgData, 'JPEG', xOffset, 0, renderWidth, renderHeight);
-
-          if (i < book.pages.length - 1) pdf.addPage();
         }
 
         if (audioEnabled) {
           if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-          const buf = await generatePageAudio(i === 0 ? book.metadata.title : book.pages[i].hebrewText, audioContextRef.current, voiceName);
+
+          let textForAudio = i === 0 ? book.metadata.title : updatedPages[i].hebrewText;
+          if (i > 0 && updatedPages[i].panelCaptions) {
+            textForAudio = [
+              updatedPages[i].panelCaptions!.A,
+              updatedPages[i].panelCaptions!.B,
+              updatedPages[i].panelCaptions!.C,
+              updatedPages[i].panelCaptions!.D
+            ].join('. ');
+          }
+
+          const buf = await generatePageAudio(textForAudio, audioContextRef.current, voiceName);
           if (buf) zip.file(i === 0 ? '00_AUDIO_Title.wav' : `AUDIO_Page_${String(i).padStart(2, '0')}.wav`, audioBufferToWav(buf));
         }
       }
@@ -501,14 +595,22 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {book.pages.map((page, index) => (
-              <div key={index} className={`relative bg-slate-800 rounded-xl overflow-hidden border-2 transition-all group ${selectedPages.has(index) ? 'border-kid-blue shadow-[0_0_15px_rgba(64,224,208,0.3)]' : 'border-slate-700 hover:border-slate-600'}`} onClick={() => toggleSelection(index)}>
+              <div key={index} className={`relative bg-slate-800 rounded-xl overflow-hidden border-2 transition-all group ${selectedPages.has(index) ? 'border-kid-blue shadow-[0_0_15px_rgba(64,224,208,0.3)]' : 'border-slate-700 hover:border-slate-600'} `} onClick={() => toggleSelection(index)}>
                 <div className="absolute top-3 left-3 z-20">
                   <input type="checkbox" checked={selectedPages.has(index)} onChange={() => { }} className="w-5 h-5 rounded border-slate-500 bg-slate-700 checked:bg-kid-blue cursor-pointer" />
                 </div>
 
                 <div className="aspect-square bg-slate-900 relative">
                   {page.generatedImageUrl ? (
-                    <img src={page.generatedImageUrl} alt={`Page ${index}`} className="w-full h-full object-cover" />
+                    book.metadata.artStyle.toLowerCase().includes('comic') && index !== 0 && page.hebrewText ? (
+                      <ComicImageWithText
+                        imageUrl={page.generatedImageUrl}
+                        text={page.hebrewText}
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <img src={page.generatedImageUrl} alt={`Page ${index} `} className="w-full h-full object-cover" />
+                    )
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-600">
                       <span className="text-4xl mb-2">🖼️</span>
@@ -528,7 +630,7 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
                     <button onClick={(e) => { e.stopPropagation(); handleSingleRegenerate(index); }} className="p-2 bg-white/10 hover:bg-white/30 rounded-full text-white backdrop-blur-sm" title="Regenerate this page">🔄</button>
                   </div>
 
-                  <div className="absolute top-3 right-3 bg-black/50 backdrop-blur text-white text-xs font-bold px-2 py-1 rounded">{index === 0 ? 'כריכה' : `עמוד ${page.pageNumber}`}</div>
+                  <div className="absolute top-3 right-3 bg-black/50 backdrop-blur text-white text-xs font-bold px-2 py-1 rounded">{index === 0 ? 'כריכה' : `עמוד ${page.pageNumber} `}</div>
                 </div>
 
                 <div className="p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -541,13 +643,67 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
                     {index === 0 ? (
                       <p className="text-xs text-slate-400" dir="rtl">{book.metadata.title}</p>
                     ) : (
-                      <textarea
-                        value={page.hebrewText}
-                        onChange={(e) => handleTextChange(index, e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 focus:border-kid-blue focus:ring-1 focus:ring-kid-blue outline-none resize-none h-20 scrollbar-thin"
-                        placeholder="הטקסט בעברית..."
-                        dir="rtl"
-                      />
+                      <div className="space-y-2">
+                        {/* Main Hebrew Summary Text */}
+                        <textarea
+                          value={page.hebrewText}
+                          onChange={(e) => handleTextChange(index, e.target.value)}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 focus:border-kid-blue focus:ring-1 focus:ring-kid-blue outline-none resize-none h-16 scrollbar-thin"
+                          placeholder="תקציר העמוד..."
+                          dir="rtl"
+                        />
+
+                        {/* Comic Panel Captions (if available) - Hebrew RTL Order */}
+                        {page.panelCaptions && (
+                          <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-800">
+                            <div className="col-span-2 text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-1">כיתובי קומיקס (לפי סדר הקריאה)</div>
+
+                            {/* Panel A (Top-Right) - First in RTL */}
+                            <div>
+                              <label className="text-[9px] text-slate-500 block mb-0.5">A (ימין-למעלה)</label>
+                              <textarea
+                                value={page.panelCaptions.A}
+                                onChange={(e) => handlePanelCaptionChange(index, 'A', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-[10px] text-slate-300 focus:border-kid-blue outline-none resize-none h-14"
+                                dir="rtl"
+                              />
+                            </div>
+
+                            {/* Panel B (Top-Left) - Second in RTL */}
+                            <div>
+                              <label className="text-[9px] text-slate-500 block mb-0.5">B (שמאל-למעלה)</label>
+                              <textarea
+                                value={page.panelCaptions.B}
+                                onChange={(e) => handlePanelCaptionChange(index, 'B', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-[10px] text-slate-300 focus:border-kid-blue outline-none resize-none h-14"
+                                dir="rtl"
+                              />
+                            </div>
+
+                            {/* Panel C (Bottom-Right) - Third in RTL */}
+                            <div>
+                              <label className="text-[9px] text-slate-500 block mb-0.5">C (ימין-למטה)</label>
+                              <textarea
+                                value={page.panelCaptions.C}
+                                onChange={(e) => handlePanelCaptionChange(index, 'C', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-[10px] text-slate-300 focus:border-kid-blue outline-none resize-none h-14"
+                                dir="rtl"
+                              />
+                            </div>
+
+                            {/* Panel D (Bottom-Left) - Fourth in RTL */}
+                            <div>
+                              <label className="text-[9px] text-slate-500 block mb-0.5">D (שמאל-למטה)</label>
+                              <textarea
+                                value={page.panelCaptions.D}
+                                onChange={(e) => handlePanelCaptionChange(index, 'D', e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded p-1.5 text-[10px] text-slate-300 focus:border-kid-blue outline-none resize-none h-14"
+                                dir="rtl"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.1",
+    "@google/generative-ai": "^0.24.1",
     "@react-oauth/google": "^0.13.4",
     "firebase": "^12.8.0",
     "html2canvas": "1.4.1",

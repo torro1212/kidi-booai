@@ -11,6 +11,20 @@ export interface BookPage {
   hebrewText: string;
   imagePrompt: string;
   generatedImageUrl?: string;
+  // Panel-first structure for comics (generated directly, not split)
+  panels?: {
+    A: { scene: string; caption: string }; // Top-Right (Hebrew RTL first)
+    B: { scene: string; caption: string }; // Top-Left
+    C: { scene: string; caption: string }; // Bottom-Right
+    D: { scene: string; caption: string }; // Bottom-Left
+  };
+  // Legacy: derived from panels or split from hebrewText
+  panelCaptions?: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
 }
 
 export interface BookMetadata {
