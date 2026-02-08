@@ -25,6 +25,8 @@ export const metadata: Metadata = {
     description: 'Create magical children\'s books with AI',
 }
 
+import { VersionDisplay } from '@/components/VersionDisplay';
+
 export default function RootLayout({
     children,
 }: {
@@ -34,6 +36,7 @@ export default function RootLayout({
         <html lang="he" dir="rtl">
             <body className={`${nunito.variable} ${fredoka.variable} ${rubik.variable} font-sans`}>
                 {children}
+                <VersionDisplay />
             </body>
         </html>
     )

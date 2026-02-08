@@ -283,6 +283,103 @@ export const generateStoryIdea = async (ageRange: string, currentTopic: string):
   }
 };
 
+export const generateBookSummary = async (book: any): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
+  // Extract full book text for analysis
+  const fullBookText = book.pages
+    .slice(1) // Skip cover
+    .map((page: any, idx: number) => {
+      if (page.panelCaptions) {
+        return `עמוד ${idx + 1}: ${page.panelCaptions.A} ${page.panelCaptions.B} ${page.panelCaptions.C} ${page.panelCaptions.D}`;
+      }
+      return `עמוד ${idx + 1}: ${page.hebrewText}`;
+    })
+    .join('\n');
+
+  const prompt = `ROLE:
+You are a professional children's book editor and marketing copywriter.
+
+TASK:
+Create a short book summary (blurb) for a children's book based on the FULL BOOK TEXT provided.
+
+CRITICAL DEFINITION OF "SUMMARY":
+This is NOT a retelling of the story and NOT a shortened version of pages 1–2.
+This is a teaser-style summary meant to invite the reader to read the book without revealing the plot.
+
+🚫 STRICT RULES (MUST FOLLOW)
+
+DO NOT summarize page-by-page
+DO NOT describe the opening scene
+DO NOT retell events in chronological order
+DO NOT mention how the story begins, what happens next, or how it ends
+DO NOT reuse sentences or phrasing from the book text
+DO NOT include spoilers
+DO NOT describe specific scenes, actions, or resolutions
+
+If your output sounds like "page 1 of the book" → it is WRONG.
+
+✅ WHAT THE SUMMARY SHOULD DO
+
+Introduce the main character (who they are, emotionally or conceptually)
+Hint at the world or situation (without specific events)
+Present a question, challenge, or feeling, not a storyline
+Create curiosity and emotional pull
+Feel like the text on the back cover of a children's book
+
+✍️ STYLE & FORMAT
+
+Language: Hebrew (עברית) - same as the book
+Length: 3–5 sentences total
+Tone: warm, magical, intriguing, child-friendly
+Perspective: general and timeless (not "first this happened, then…")
+
+🧠 QUALITY CHECK (SELF-VALIDATION)
+
+Before finalizing, ask yourself:
+
+Can someone understand the full story from this text?
+→ If YES, it's wrong.
+
+Does this reveal events instead of emotions or themes?
+→ If YES, it's wrong.
+
+Does this make the reader curious to open the book?
+→ If YES, it's correct.
+
+===== BOOK METADATA =====
+כותרת: ${book.metadata.title}
+גיל: ${book.metadata.targetAge}
+נושא: ${book.metadata.mainTheme}
+מסר חינוכי: ${book.metadata.educationalMessage}
+
+===== FULL BOOK TEXT (FOR REFERENCE ONLY) =====
+${fullBookText}
+
+📌 OUTPUT
+Return ONLY the final summary text in Hebrew.
+No explanations. No analysis. No bullet points. Just the 3-5 sentence blurb.`;
+
+  try {
+    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: [{ text: prompt }] },
+      config: {
+        maxOutputTokens: 500,
+      }
+    }));
+    const generatedText = response.text?.trim() || "";
+    console.log("📖 AI Generated Summary (Hebrew):", generatedText);
+    return generatedText;
+  } catch (error: any) {
+    console.error("Error generating book summary:", error);
+    if (!handleFatalError(error)) {
+      throw error;
+    }
+    return "";
+  }
+};
+
 export const generateBookContent = async (request: BookRequest): Promise<Book> => {
   // Copyright check before generation
   const { validateBookRequest, logGeneratedBook } = await import('./promptGuard');

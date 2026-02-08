@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
 import { ComicImageWithText } from '@/components/ComicImageWithText'
 import { composeComicImageWithCaptions } from '@/lib/comicComposer'
+import { audioBufferToMp3, generateBookSummary } from '@/utils/audioUtils'
 
 interface BookEditorProps {
   book: Book;
@@ -15,52 +16,6 @@ interface BookEditorProps {
   onPreview: () => void;
   onBack: () => void;
   onCreateSequel?: (book: Book) => void;
-}
-
-// Helper for ZIP Export (Same as Viewer)
-function audioBufferToWav(buffer: AudioBuffer): Blob {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
-  const bitDepth = 16;
-  const bytesPerSample = bitDepth / 8;
-  const blockAlign = numChannels * bytesPerSample;
-  const dataByteCount = buffer.length * blockAlign;
-  const headerByteCount = 44;
-  const totalByteCount = headerByteCount + dataByteCount;
-  const headerBuffer = new ArrayBuffer(headerByteCount);
-  const view = new DataView(headerBuffer);
-  const writeString = (view: DataView, offset: number, string: string) => {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
-    }
-  };
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, totalByteCount - 8, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, format, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitDepth, true);
-  writeString(view, 36, 'data');
-  view.setUint32(40, dataByteCount, true);
-  const dataBuffer = new ArrayBuffer(dataByteCount);
-  const dataView = new DataView(dataBuffer);
-  let offset = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    for (let channel = 0; channel < numChannels; channel++) {
-      const sample = buffer.getChannelData(channel)[i];
-      const s = Math.max(-1, Math.min(1, sample));
-      const int16 = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      dataView.setInt16(offset, int16, true);
-      offset += 2;
-    }
-  }
-  return new Blob([headerBuffer, dataBuffer], { type: 'audio/wav' });
 }
 
 const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, onBack, onCreateSequel }) => {
@@ -390,7 +345,14 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
     const voiceName = book.metadata.audioConfig?.voiceName || 'Puck';
 
     try {
+      // Add sequel data JSON
       zip.file("sequel_data.json", JSON.stringify(book, null, 2));
+
+      // Add book summary text file (AI-generated marketing blurb)
+      // Important: Convert to UTF-8 Blob to preserve Hebrew characters
+      const bookSummary = await generateBookSummary(book);
+      const summaryBlob = new Blob([bookSummary], { type: 'text/plain;charset=utf-8' });
+      zip.file("BOOK_SUMMARY.txt", summaryBlob);
 
       for (let i = 0; i < book.pages.length; i++) {
         setExportProgress(`מעבד עמוד ${i + 1}/${book.pages.length}...`);
@@ -501,7 +463,11 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
           }
 
           const buf = await generatePageAudio(textForAudio, audioContextRef.current, voiceName);
-          if (buf) zip.file(i === 0 ? '00_AUDIO_Title.wav' : `AUDIO_Page_${String(i).padStart(2, '0')}.wav`, audioBufferToWav(buf));
+          if (buf) {
+            // Convert to MP3 and add to ZIP
+            const mp3Blob = await audioBufferToMp3(buf);
+            zip.file(i === 0 ? '00_AUDIO_Title.mp3' : `AUDIO_Page_${String(i).padStart(2, '0')}.mp3`, mp3Blob);
+          }
         }
       }
 
