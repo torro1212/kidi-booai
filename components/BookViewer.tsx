@@ -344,9 +344,11 @@ const BookViewer: React.FC<BookViewerProps> = ({ book, onUpdateBook, onClose }) 
       // Add sequel data JSON
       zip.file("sequel_data.json", JSON.stringify(bookRef.current, null, 2));
 
-      // Add book summary text file
-      const bookSummary = generateBookSummary(bookRef.current);
-      zip.file("BOOK_SUMMARY.txt", bookSummary);
+      // Add book summary text file (AI-generated marketing blurb)
+      // Important: Convert to UTF-8 Blob to preserve Hebrew characters
+      const bookSummary = await generateBookSummary(bookRef.current);
+      const summaryBlob = new Blob([bookSummary], { type: 'text/plain;charset=utf-8' });
+      zip.file("BOOK_SUMMARY.txt", summaryBlob);
 
       for (let i = 0; i < book.pages.length; i++) {
         setExportProgress(`מעבד עמוד ${i + 1} מתוך ${book.pages.length}...`);
