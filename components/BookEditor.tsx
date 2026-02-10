@@ -188,15 +188,16 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
         const isCover = i === 0;
         const textToRender = isCover ? book.metadata.title : undefined;
 
-        // COMIC LOGIC: If we have panels, construct a strict 4-panel prompt
+        // COMIC LOGIC: If we have panels AND art style is comic, construct a strict 4-panel prompt
         // Note: AI models generate LTR (Panel 1=TL, 2=TR). 
         // Hebrew is RTL (A=TR, B=TL).
         // So we must map: Panel 1 (TL) -> Scene B
         //                Panel 2 (TR) -> Scene A
         //                Panel 3 (BL) -> Scene D
         //                Panel 4 (BR) -> Scene C
+        const isComicStyle = book.metadata.artStyle.toLowerCase().includes('comic');
         let promptToUse = workingPages[i].imagePrompt;
-        if (!isCover && workingPages[i].panels) {
+        if (!isCover && isComicStyle && workingPages[i].panels) {
           const p = workingPages[i].panels!;
           promptToUse = `comic strip 4-panel layout, 2x2 grid.
 Panel 1 (Top-Left): ${p.B?.scene || ''}

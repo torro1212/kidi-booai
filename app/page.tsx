@@ -8,6 +8,8 @@ import BookViewer from '@/components/BookViewer'
 import BookEditor from '@/components/BookEditor'
 import ApiKeyModal from '@/components/ApiKeyModal'
 import BooksGallery from '@/components/BooksGallery'
+import AutoPilot from '@/components/AutoPilot'
+import BookImporter from '@/components/BookImporter'
 import { AppView, Book, BookRequest, GenerationStatus } from '@/types'
 import { generateBookContent } from '@/services/geminiService'
 import { startBackgroundMode, stopBackgroundMode } from '@/services/backgroundMode'
@@ -90,8 +92,8 @@ export default function Home() {
             )}
 
             <div className="min-h-screen flex flex-col font-sans text-slate-800">
-                {/* Hide Header in Editor/Reading modes for immersion/focus */}
-                {currentView !== AppView.READING && currentView !== AppView.EDITOR && (
+                {/* Hide Header in Editor/Reading/AutoPilot modes for immersion/focus */}
+                {currentView !== AppView.READING && currentView !== AppView.EDITOR && currentView !== AppView.AUTO_PILOT && currentView !== AppView.RE_EDIT && (
                     <Header
                         onNavigate={handleNavigate}
                         onChangeKey={handleChangeKey}
@@ -101,7 +103,11 @@ export default function Home() {
 
                 <main className="flex-grow">
                     {currentView === AppView.HOME && (
-                        <Hero onStart={() => setCurrentView(AppView.CREATE)} />
+                        <Hero
+                            onStart={() => setCurrentView(AppView.CREATE)}
+                            onAutoPilot={() => setCurrentView(AppView.AUTO_PILOT)}
+                            onReEdit={() => setCurrentView(AppView.RE_EDIT)}
+                        />
                     )}
 
                     {currentView === AppView.CREATE && (
@@ -125,6 +131,22 @@ export default function Home() {
                             book={currentBook}
                             onUpdateBook={handleUpdateBook}
                             onClose={() => setCurrentView(AppView.EDITOR)}
+                        />
+                    )}
+
+                    {currentView === AppView.AUTO_PILOT && (
+                        <AutoPilot
+                            onBack={() => setCurrentView(AppView.HOME)}
+                        />
+                    )}
+
+                    {currentView === AppView.RE_EDIT && (
+                        <BookImporter
+                            onBookLoaded={(book) => {
+                                setCurrentBook(book);
+                                setCurrentView(AppView.EDITOR);
+                            }}
+                            onBack={() => setCurrentView(AppView.HOME)}
                         />
                     )}
                 </main>

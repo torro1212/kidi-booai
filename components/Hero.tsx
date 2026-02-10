@@ -4,9 +4,11 @@ import React from 'react'
 
 interface HeroProps {
   onStart: () => void
+  onAutoPilot?: () => void
+  onReEdit?: () => void
 }
 
-const Hero: React.FC<HeroProps> = ({ onStart }) => {
+const Hero: React.FC<HeroProps> = ({ onStart, onAutoPilot, onReEdit }) => {
   return (
     <div className="relative overflow-hidden bg-sky-50 py-16 sm:py-24">
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
@@ -29,6 +31,22 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
           >
             Create a Book Now ✨
           </button>
+          {onAutoPilot && (
+            <button
+              onClick={onAutoPilot}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xl font-bold py-4 px-10 rounded-full shadow-lg hover:from-purple-500 hover:to-pink-500 hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center gap-2"
+            >
+              <span>🤖</span> AUTO PILOT
+            </button>
+          )}
+          {onReEdit && (
+            <button
+              onClick={onReEdit}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xl font-bold py-4 px-10 rounded-full shadow-lg hover:from-emerald-500 hover:to-teal-500 hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center gap-2"
+            >
+              <span>✏️</span> עריכת ספר
+            </button>
+          )}
         </div>
 
         {/* Feature Grid */}

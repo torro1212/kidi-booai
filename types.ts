@@ -1,9 +1,12 @@
 
+
 export enum AppView {
   HOME = 'HOME',
   CREATE = 'CREATE',
   EDITOR = 'EDITOR',
   READING = 'READING',
+  AUTO_PILOT = 'AUTO_PILOT',
+  RE_EDIT = 'RE_EDIT',
 }
 
 export interface BookPage {
@@ -93,3 +96,30 @@ export enum GenerationStatus {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR',
 }
+
+// AUTO PILOT Types
+export interface AutoPilotStory {
+  title: string;
+  heroName: string;
+  heroDescription: string;
+  distinctiveMark: string;
+  plotSummary: string;
+  mainTheme: string;
+  educationalMessage: string;
+}
+
+export interface AutoPilotStoriesFile {
+  description?: string;
+  instructions_for_llm?: string;
+  stories: AutoPilotStory[];
+}
+
+export interface AutoPilotProgress {
+  currentIndex: number;
+  totalStories: number;
+  currentStoryTitle: string;
+  status: 'idle' | 'generating' | 'downloading' | 'waiting' | 'complete' | 'error';
+  completedBooks: string[];
+  errorMessages: string[];
+}
+

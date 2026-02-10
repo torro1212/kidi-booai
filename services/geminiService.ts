@@ -408,6 +408,28 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
      - If the text mentions both characters → Include both in image
      - Read the Hebrew text CAREFULLY before writing the imagePrompt
      
+     **STORY CHARACTER INTRODUCTION - ABSOLUTELY CRITICAL:**
+     This is the #1 reason for story consistency failures. READ VERY CAREFULLY:
+     
+     1. TRACK when each character is FIRST INTRODUCED in the Hebrew text
+     2. A character CANNOT appear in ANY image BEFORE their first text introduction
+     3. If the story says "בדף 6: פתאום הופיע יואב" (suddenly Yoav appeared on page 6), 
+        then Yoav MUST NOT appear in pages 1-5 images AT ALL
+     4. Before each imagePrompt, ask: "Has this character been introduced in the story YET?"
+     5. If NO → Do NOT include them in the image, even in the background
+     6. If YES → Only include if mentioned on THIS specific page
+     
+     COMMON MISTAKES TO AVOID:
+     ❌ Adding a "friend" character in page 3 background when they're only introduced in page 7
+     ❌ Showing "the new pet" in page 2 when the story says "found a pet" on page 5
+     ❌ Including siblings/parents in early pages before they appear in the narrative
+     ❌ Having mystery characters visible before their "reveal" moment
+     
+     CORRECT APPROACH:
+     ✅ Pages 1-5: ONLY main character (if secondary not yet introduced)
+     ✅ Page 6 (introduction): "הילד פגש את יואב" → NOW Yoav can appear
+     ✅ Pages 7+: Both characters can appear IF mentioned in that page's text
+     
   4. VISUAL VARIETY (ABSOLUTELY CRITICAL - READ CAREFULLY):
      
      **BACKGROUND MUST CHANGE DRAMATICALLY BETWEEN PAGES:**
@@ -494,6 +516,21 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
   Page Text: "בבית, אמא הכינה ארוחה"
   ✅ CORRECT imagePrompt: "Cozy kitchen, mother preparing meal at wooden table"
   ❌ WRONG imagePrompt: "Mother and main character in kitchen" (main character not in this scene!)
+  
+  CHARACTER INTRODUCTION TIMING EXAMPLES (CRITICAL):
+  
+  Story flow: Pages 1-5 = Only Ella, Page 6 = "פתאום הופיע יואב" (Yoav appears), Pages 7+ = Both
+  ✅ CORRECT: Pages 1-5 images show ONLY Ella, Page 6 shows Yoav's first appearance, Pages 7+ can show both
+  ❌ WRONG: Yoav visible in background of page 3 even though he's introduced on page 6
+  
+  Story flow: Page 4 = "היא מצאה גור כלבים" (she found a puppy)
+  ✅ CORRECT: Pages 1-3 have NO puppy anywhere, Page 4 shows discovery moment
+  ❌ WRONG: Puppy appears in page 2 corner before being "found" on page 4
+  
+  VALIDATION CHECKLIST FOR EACH IMAGE:
+  1. Which characters have been introduced in the story SO FAR?
+  2. Which characters are mentioned on THIS SPECIFIC PAGE?
+  3. Image should only show characters from step 2, IF they passed step 1
   
   Remember: Quality over rhyming. Every word should have PURPOSE. Match images to TEXT!
   
