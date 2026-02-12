@@ -95,19 +95,26 @@ function createBookRequest(story: AutoPilotStory): BookRequest {
 async function generateImagesForBook(book: Book): Promise<Book> {
     const updatedBook = { ...book, pages: [...book.pages] };
 
-    // Build character description
-    const characterDescription = `
-        ${book.metadata.mainCharacterDescription}
-        [DISTINCTIVE MARK]: ${book.metadata.mainCharacterDistinctiveMark}
-        ${book.metadata.secondaryCharacterDescription ? `[SECONDARY CHARACTER]: ${book.metadata.secondaryCharacterDescription}` : ''}
-    `.trim();
+    // Get the page where secondary character is introduced
+    const secondaryIntroPage = book.metadata.secondaryCharacterIntroPage || Infinity;
 
     // Get base character image from first generated page
     let baseCharacterImageUrl = book.metadata.baseCharacterImageUrl;
 
     for (let i = 0; i < updatedBook.pages.length; i++) {
         const page = updatedBook.pages[i];
+        const currentPageNumber = page.pageNumber || (i + 1);
         const isCover = i === 0;
+
+        // Build page-specific character description (secondary character only after intro page)
+        let characterDescription = `
+            ${book.metadata.mainCharacterDescription}
+            [DISTINCTIVE MARK]: ${book.metadata.mainCharacterDistinctiveMark}
+        `;
+        if (book.metadata.secondaryCharacterDescription && currentPageNumber >= secondaryIntroPage) {
+            characterDescription += `\n[SECONDARY CHARACTER]: ${book.metadata.secondaryCharacterDescription}`;
+        }
+        characterDescription = characterDescription.trim();
 
         console.log(`🖼️ AUTO PILOT: Generating image ${i + 1}/${updatedBook.pages.length}...`);
 

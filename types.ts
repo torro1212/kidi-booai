@@ -39,6 +39,7 @@ export interface BookMetadata {
   mainCharacterDistinctiveMark: string; // New: Unique visual anchor
   secondaryCharacterDescription?: string; // New: For sidekicks (e.g., the bird)
   secondaryCharacterDistinctiveMark?: string; // New: Unique visual anchor for sidekick
+  secondaryCharacterIntroPage?: number; // Page number where secondary character is first introduced in text
   artStyle: string;
   keyObjectDescription: string;
   characterColorPalette?: {

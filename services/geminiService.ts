@@ -116,6 +116,10 @@ const bookSchema = {
           type: Type.STRING,
           description: "A specific, unique visual feature for the secondary character (if present) that acts as a visual anchor."
         },
+        secondaryCharacterIntroPage: {
+          type: Type.INTEGER,
+          description: "CRITICAL: The EXACT page number where the secondary character is FIRST INTRODUCED in the Hebrew story text. If the bee first appears on page 6 with text like 'פתאום הופיעה הדבורה', set this to 6. Set to 0 if there is no secondary character. This value controls which images include the secondary character — accuracy is MANDATORY."
+        },
         keyObjectDescription: {
           type: Type.STRING,
           description: "Description of any recurring magical or key object."
@@ -177,7 +181,17 @@ const bookSchema = {
           },
           imagePrompt: {
             type: Type.STRING,
-            description: `Detailed ENGLISH visual scene description. CRITICAL REQUIREMENTS FOR VARIETY:
+            description: `Detailed ENGLISH visual scene description. 
+            
+            MANDATORY FIRST LINE: Start EVERY imagePrompt with a [CHARACTERS_IN_SCENE] tag listing ONLY 
+            the characters that should be visible in this image. This MUST match the Hebrew text for this page 
+            AND respect character introduction order (secondaryCharacterIntroPage).
+            Examples:
+            - "[CHARACTERS_IN_SCENE: Ella only] Close-up of Ella's surprised face..."
+            - "[CHARACTERS_IN_SCENE: Ella, Tzuf the bee] Wide shot of Ella and Tzuf flying together..."
+            - "[CHARACTERS_IN_SCENE: none - landscape only] Panoramic view of the enchanted forest..."
+            
+            CRITICAL REQUIREMENTS FOR VARIETY:
             
             1. CAMERA ANGLE (must vary each page): Close-up, Medium shot, Wide shot, Bird's eye view, Low angle, Over-the-shoulder, Dutch angle
             2. BACKGROUND DEPTH: Describe FOREGROUND, MIDDLE GROUND, and BACKGROUND separately
@@ -187,10 +201,10 @@ const bookSchema = {
             
             EXAMPLES OF GOOD VARIETY:
             ❌ BAD: "The character in the forest"
-            ✅ GOOD: "Close-up of character's surprised face, sunlight dappling through dense foliage behind them, morning mist rising from mossy ground, warm golden tones"
+            ✅ GOOD: "[CHARACTERS_IN_SCENE: Ella only] Close-up of Ella's surprised face, sunlight dappling through dense foliage behind them, morning mist rising from mossy ground, warm golden tones"
             
             ❌ BAD: "Character walking in the field"  
-            ✅ GOOD: "Wide aerial shot looking down at character walking through lavender field, distant mountains silhouetted against orange sunset sky, purple and orange color scheme, long shadows stretching across rolling hills"
+            ✅ GOOD: "[CHARACTERS_IN_SCENE: Ella only] Wide aerial shot looking down at Ella walking through lavender field, distant mountains silhouetted against orange sunset sky, purple and orange color scheme, long shadows stretching across rolling hills"
             
             Make EVERY page visually DISTINCT!`
           },
@@ -419,16 +433,26 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
      5. If NO → Do NOT include them in the image, even in the background
      6. If YES → Only include if mentioned on THIS specific page
      
+     **REQUIRED METADATA FIELD - secondaryCharacterIntroPage:**
+     - You MUST set 'secondaryCharacterIntroPage' in metadata to the EXACT page number
+       where the secondary character FIRST appears in the Hebrew text.
+     - Example: If "פתאום הופיע יואב" appears on page 6, set secondaryCharacterIntroPage = 6.
+     - If there is no secondary character, set to 0.
+     - This value is used to FILTER image prompts — the system will BLOCK secondary character 
+       from appearing in images before this page. So accuracy is CRITICAL.
+     
      COMMON MISTAKES TO AVOID:
      ❌ Adding a "friend" character in page 3 background when they're only introduced in page 7
      ❌ Showing "the new pet" in page 2 when the story says "found a pet" on page 5
      ❌ Including siblings/parents in early pages before they appear in the narrative
      ❌ Having mystery characters visible before their "reveal" moment
+     ❌ Setting secondaryCharacterIntroPage to 1 when the character actually appears on page 5
      
      CORRECT APPROACH:
      ✅ Pages 1-5: ONLY main character (if secondary not yet introduced)
      ✅ Page 6 (introduction): "הילד פגש את יואב" → NOW Yoav can appear
      ✅ Pages 7+: Both characters can appear IF mentioned in that page's text
+     ✅ secondaryCharacterIntroPage = 6 (matches the actual introduction page)
      
   4. VISUAL VARIETY (ABSOLUTELY CRITICAL - READ CAREFULLY):
      
@@ -477,7 +501,13 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
      - Images must be FULL BLEED, filling entire square 1:1 canvas
      - Center the action
      - Do NOT leave empty space for text
-  `;
+      
+   6. TITLE TEXT RULE (CRITICAL):
+      - The book title should ONLY appear on the COVER PAGE (page 1)
+      - Inner page imagePrompts must NEVER mention or include the book title
+      - Do NOT write the title as part of the scene or background on inner pages
+      - Inner pages are PURE ILLUSTRATION - zero text of any kind
+   `;
 
   let prompt = `Create a children's book.
   Target Age: ${request.ageRange}
@@ -635,20 +665,37 @@ export const generateBookContent = async (request: BookRequest): Promise<Book> =
     const mainMark = book.metadata.mainCharacterDistinctiveMark || "Distinctive feature";
     const secMark = book.metadata.secondaryCharacterDistinctiveMark;
 
+    // Determine the page where the secondary character is first introduced
+    const secondaryIntroPage = book.metadata.secondaryCharacterIntroPage || Infinity;
+    console.log(`📖 Secondary character intro page: ${secondaryIntroPage === Infinity ? 'None/Not set' : secondaryIntroPage}`);
+
     book.pages = book.pages.map((page, idx) => {
-      // 1. Establish the visual anchor (Characters & Style)
+      const currentPageNumber = page.pageNumber || (idx + 1);
+
+      // 1. Establish the visual anchor (Main Character)
       let refinedPrompt = `[MAIN CHARACTER]: ${book.metadata.mainCharacterDescription}. DISTINCTIVE FEATURE: ${mainMark}. Key Features: ${traits}. `;
 
+      // 2. CONDITIONALLY include secondary character based on introduction page
       if (book.metadata.secondaryCharacterDescription) {
-        refinedPrompt += `[SECONDARY CHARACTER]: ${book.metadata.secondaryCharacterDescription}. DISTINCTIVE FEATURE: ${secMark || 'None'}. `;
+        if (currentPageNumber >= secondaryIntroPage) {
+          // Secondary character has been introduced — include their description
+          refinedPrompt += `[SECONDARY CHARACTER]: ${book.metadata.secondaryCharacterDescription}. DISTINCTIVE FEATURE: ${secMark || 'None'}. `;
+        } else {
+          // Secondary character NOT YET introduced — explicitly block them
+          refinedPrompt += `[IMPORTANT - NO SECONDARY CHARACTER]: The secondary character has NOT been introduced yet in the story on this page. Do NOT draw, show, or hint at ANY secondary character. Only the MAIN character should appear (if relevant to this page's text). `;
+        }
       }
 
-      // 2. Set the Environment/Atmosphere 
-      // NOTE: We label this "General Context" so it doesn't override the specific scene action
+      // 3. Add Hebrew text context so the image model knows what the page says
+      if (page.hebrewText) {
+        refinedPrompt += `[PAGE STORY TEXT (Hebrew)]: "${page.hebrewText}". ONLY draw characters that are mentioned or implied in this text. `;
+      }
+
+      // 4. Set the Environment/Atmosphere 
       refinedPrompt += `[GENERAL CONTEXT]: ${book.metadata.visualConsistencyGuide.backgroundStyle}. `;
       if (objTraits) refinedPrompt += `[PROPS]: ${objTraits}. `;
 
-      // 3. Define the specific scene action - THIS IS PRIORITY
+      // 5. Define the specific scene action - THIS IS PRIORITY
       refinedPrompt += `[SPECIFIC SCENE ACTION & ANGLE]: ${page.imagePrompt}. `;
 
       return { ...page, imagePrompt: refinedPrompt };
@@ -929,15 +976,16 @@ export const generatePageImage = async (
       
       [ILLUSTRATION RULES]:
       1. **ABSOLUTELY NO TEXT**: No text, speech bubbles, or words
-      2. **FULL BLEED**: Use entire canvas, no borders or margins
-      3. **DYNAMIC COMPOSITION**: Use the camera angle specified in the scene description
+      2. **NO BOOK TITLE**: Do NOT include the book's title anywhere in the image. The title belongs ONLY on the cover page. Inner pages are pure illustration with ZERO text.
+      3. **FULL BLEED**: Use entire canvas, no borders or margins
+      4. **DYNAMIC COMPOSITION**: Use the camera angle specified in the scene description
       
       [BACKGROUND INSTRUCTION]: 
       Match background to the specific scene action described above.
       Use varied camera angles (Close-up, Wide shot, Low angle) for visual variety.
       
       [TECHNICAL SPECS]: 8k resolution, cinematic lighting, vivid saturated colors.
-      [NEGATIVE]: text, writing, letters, words, Hebrew text, Hebrew letters, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation, written content.
+      [NEGATIVE]: text, writing, letters, words, Hebrew text, Hebrew letters, book title, title text, watermark, logo, blurry, low quality, inconsistent character, different outfit, changed appearance, wrong skin color, wrong hair color, wrong clothing color, different shades than specified, color deviation, written content.
     `;
 
     // Add 4-panel comic layout instructions if comic style
