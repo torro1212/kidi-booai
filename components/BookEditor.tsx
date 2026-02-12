@@ -32,6 +32,21 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const sequelFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Settings modal state
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempMetadata, setTempMetadata] = useState(book.metadata);
+
+  // Update temp metadata when book changes
+  useEffect(() => {
+    setTempMetadata(book.metadata);
+  }, [book.metadata]);
+
+  const handleSaveSettings = () => {
+    onUpdateBook({ ...book, metadata: tempMetadata });
+    setShowSettings(false);
+  };
+
+
   const fullCharacterDescription = useMemo(() => {
     let desc = `Main Character: ${book.metadata.mainCharacterDescription}.`;
     if (book.metadata.mainCharacterDistinctiveMark) {
@@ -546,6 +561,9 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
             <button onClick={handleRegenerateSelected} disabled={selectedPages.size === 0 || globalLoading} className="bg-kid-blue/20 hover:bg-kid-blue/40 text-kid-blue border border-kid-blue/50 font-bold py-2 px-4 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
               {globalLoading ? <span className="animate-spin">⏳</span> : '⚡'} צור תמונות לנבחרים
             </button>
+            <button onClick={() => setShowSettings(true)} className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-4 rounded-lg text-sm transition-all shadow-md flex items-center gap-2" title="הגדרות ספר">
+              ⚙️ הגדרות
+            </button>
             <button onClick={onPreview} className="bg-kid-yellow hover:bg-yellow-400 text-slate-900 font-bold py-2 px-6 rounded-lg text-sm transition-all shadow-lg transform hover:-translate-y-0.5 flex items-center gap-2">
               <span>📖</span> עבור לקריאה
             </button>
@@ -695,6 +713,92 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
             <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
             <h3 className="text-2xl font-bold font-fredoka">מנתח את הספר...</h3>
             <p className="text-slate-400 mt-2">מחלץ דמויות וסגנון אמנותי</p>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/90 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-800 z-10">
+              <h3 className="text-xl font-bold text-white">⚙️ הגדרות ספר ודמויות</h3>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div className="p-6 space-y-6">
+
+              {/* Secondary Character Timing Control */}
+              <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h4 className="text-md font-bold text-kid-blue mb-2 flex items-center gap-2">
+                  <span>⏱️</span> תזמון הופעת דמות משנית
+                </h4>
+                <p className="text-xs text-slate-400 mb-3">
+                  באיזה עמוד בדיוק הדמות המשנית מופיעה לראשונה בטקסט?
+                  הבינה המלאכותית לא תצייר את הדמות המשנית בעמודים שלפני עמוד זה.
+                </p>
+                <div className="flex items-center gap-4">
+                  <label className="text-sm text-slate-300">עמוד ראשון להופעה:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={book.pages.length}
+                    value={tempMetadata.secondaryCharacterIntroPage || 0}
+                    onChange={(e) => setTempMetadata({ ...tempMetadata, secondaryCharacterIntroPage: parseInt(e.target.value) || 0 })}
+                    className="bg-slate-950 border border-slate-600 rounded px-3 py-1 w-20 text-center text-white focus:border-kid-blue outline-none"
+                  />
+                  <span className="text-xs text-slate-500">(0 = אין דמות משנית / לא הוגדר)</span>
+                </div>
+              </div>
+
+              {/* Character Descriptions */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-300 mb-1">תיאור דמות ראשית</label>
+                  <textarea
+                    value={tempMetadata.mainCharacterDescription}
+                    onChange={(e) => setTempMetadata({ ...tempMetadata, mainCharacterDescription: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-sm text-slate-200 focus:border-kid-blue outline-none h-24 resize-none"
+                    placeholder="תיאור מלא של הדמות הראשית..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-300 mb-1">סימן היכר (דמות ראשית)</label>
+                  <input
+                    type="text"
+                    value={tempMetadata.mainCharacterDistinctiveMark}
+                    onChange={(e) => setTempMetadata({ ...tempMetadata, mainCharacterDistinctiveMark: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-600 rounded-lg p-2 text-sm text-slate-200 focus:border-kid-blue outline-none"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-700">
+                  <label className="block text-sm font-bold text-slate-300 mb-1">תיאור דמות משנית (אופציונלי)</label>
+                  <textarea
+                    value={tempMetadata.secondaryCharacterDescription || ''}
+                    onChange={(e) => setTempMetadata({ ...tempMetadata, secondaryCharacterDescription: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-600 rounded-lg p-3 text-sm text-slate-200 focus:border-kid-blue outline-none h-24 resize-none"
+                    placeholder="תיאור הדמות המשנית..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700 bg-slate-800 sticky bottom-0 flex justify-end gap-3">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-slate-300 hover:text-white transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                className="px-6 py-2 bg-kid-blue hover:bg-blue-600 text-white font-bold rounded-lg shadow-lg transition-all"
+              >
+                שמור שינויים
+              </button>
+            </div>
           </div>
         </div>
       )}
