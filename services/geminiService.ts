@@ -1105,6 +1105,77 @@ export const generatePageImage = async (
   }
 };
 
+/**
+ * Generate a coloring page from the book cover image.
+ * Takes the cover image and uses Gemini to convert it into a black-and-white line art coloring page.
+ */
+export const generateColoringPage = async (coverImageDataUrl: string): Promise<string | null> => {
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
+  // Extract base64 data from data URL
+  const matches = coverImageDataUrl.match(/^data:(.+);base64,(.+)$/);
+  if (!matches) {
+    console.error("Invalid cover image data URL for coloring page generation");
+    return null;
+  }
+
+  const prompt = `
+    [ROLE]: Expert Children's Coloring Page Artist.
+    
+    [TASK]: Convert the provided children's book cover image into a COLORING PAGE.
+    
+    [CRITICAL REQUIREMENTS]:
+    1. Create a clean BLACK-AND-WHITE LINE ART drawing based on the cover image
+    2. REMOVE ALL TEXT - no title, no words, no letters of any language
+    3. Keep ONLY bold outlines of the characters, objects, and background elements
+    4. Make the lines THICK and CLEAR - suitable for young children (ages 3-8) to color
+    5. The result must be a PURE LINE DRAWING:
+       - No filled colors
+       - No shading or gradients  
+       - No gray areas
+       - Only black outlines on white background
+    6. Simplify complex details but keep the characters recognizable
+    7. Ensure large, easy-to-color areas (not too many tiny details)
+    8. The overall composition should match the original cover layout
+    
+    [STYLE]: Clean coloring book page, bold outlines, child-friendly, simple but recognizable shapes.
+    
+    [TECHNICAL]: High contrast black lines on pure white background. Lines should be uniform thickness (medium-bold).
+    
+    [NEGATIVE]: color, shading, gradients, text, letters, words, title, gray areas, filled areas, watermark, complex tiny details.
+  `;
+
+  const parts: any[] = [
+    {
+      inlineData: {
+        mimeType: matches[1],
+        data: matches[2]
+      }
+    },
+    { text: prompt }
+  ];
+
+  try {
+    const response = await retryWithBackoff<GenerateContentResponse>(() => ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts }
+    }));
+
+    for (const candidate of response.candidates || []) {
+      for (const part of candidate.content?.parts || []) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+    return null;
+  } catch (error: any) {
+    console.error("Error generating coloring page:", error);
+    handleFatalError(error);
+    return null;
+  }
+};
+
 export const analyzeBookPdf = async (pdfBase64: string): Promise<PreviousBookContext> => {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
 

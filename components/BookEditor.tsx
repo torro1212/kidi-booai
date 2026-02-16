@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { Book, BookPage, PreviousBookContext } from '@/types'
-import { generatePageImage, generatePageAudio, analyzeBookPdf } from '@/services/geminiService'
+import { generatePageImage, generatePageAudio, analyzeBookPdf, generateColoringPage } from '@/services/geminiService'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 import JSZip from 'jszip'
@@ -34,6 +34,11 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
 
   // Settings modal state
   const [showSettings, setShowSettings] = useState(false);
+
+  // Coloring page state
+  const [coloringPageUrl, setColoringPageUrl] = useState<string | null>(null);
+  const [isGeneratingColoring, setIsGeneratingColoring] = useState(false);
+  const [includeColoringPage, setIncludeColoringPage] = useState(false);
   const [tempMetadata, setTempMetadata] = useState(book.metadata);
 
   // Update temp metadata when book changes
@@ -44,6 +49,30 @@ const BookEditor: React.FC<BookEditorProps> = ({ book, onUpdateBook, onPreview, 
   const handleSaveSettings = () => {
     onUpdateBook({ ...book, metadata: tempMetadata });
     setShowSettings(false);
+  };
+
+  // Coloring page generation
+  const handleGenerateColoringPage = async () => {
+    const coverImage = book.pages[0]?.generatedImageUrl;
+    if (!coverImage) {
+      alert('אין תמונת שער – יש ליצור תמונת שער קודם');
+      return;
+    }
+    setIsGeneratingColoring(true);
+    try {
+      const result = await generateColoringPage(coverImage);
+      if (result) {
+        setColoringPageUrl(result);
+        setIncludeColoringPage(true);
+      } else {
+        alert('לא הצלחנו ליצור דף צביעה. נסה שוב.');
+      }
+    } catch (err) {
+      console.error('Coloring page generation failed:', err);
+      alert('שגיאה ביצירת דף צביעה');
+    } finally {
+      setIsGeneratingColoring(false);
+    }
   };
 
 
@@ -487,6 +516,23 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
         }
       }
 
+      // Add coloring page if available and enabled
+      if (coloringPageUrl && includeColoringPage) {
+        setExportProgress('מוסיף דף צביעה...');
+        try {
+          const coloringRes = await fetch(coloringPageUrl);
+          const coloringBlob = await coloringRes.blob();
+          zip.file('COLORING_PAGE.png', coloringBlob);
+
+          // Add coloring page to PDF as last page
+          pdf.addPage();
+          const pageWidth = 210;
+          pdf.addImage(coloringPageUrl, 'PNG', 0, 0, pageWidth, pageWidth); // Square 1:1
+        } catch (err) {
+          console.error('Failed to add coloring page to export:', err);
+        }
+      }
+
       const pdfBlob = pdf.output('blob');
       zip.file(`${book.metadata.title}.pdf`, pdfBlob);
 
@@ -558,6 +604,25 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
             <button onClick={handleDownloadZIP} disabled={isExporting || globalLoading} className="bg-kid-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-all shadow-md flex items-center gap-2 disabled:opacity-50">
               {isExporting ? <span className="animate-spin">⏳</span> : '📦'} הורד ZIP
             </button>
+            <button
+              onClick={handleGenerateColoringPage}
+              disabled={isGeneratingColoring || !book.pages[0]?.generatedImageUrl}
+              className="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-4 rounded-lg text-sm transition-all shadow-md flex items-center gap-2 disabled:opacity-50"
+              title="צור דף צביעה מהשער"
+            >
+              {isGeneratingColoring ? <span className="animate-spin">⏳</span> : '🖍️'} צור דף צביעה
+            </button>
+            {coloringPageUrl && (
+              <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeColoringPage}
+                  onChange={(e) => setIncludeColoringPage(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-500 bg-slate-700 checked:bg-pink-500 cursor-pointer"
+                />
+                כולל דף צביעה ב-ZIP
+              </label>
+            )}
             <button onClick={handleRegenerateSelected} disabled={selectedPages.size === 0 || globalLoading} className="bg-kid-blue/20 hover:bg-kid-blue/40 text-kid-blue border border-kid-blue/50 font-bold py-2 px-4 rounded-lg text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
               {globalLoading ? <span className="animate-spin">⏳</span> : '⚡'} צור תמונות לנבחרים
             </button>
@@ -695,6 +760,45 @@ Panel 4 (Bottom-Right): ${p.C?.scene || ''}`;
               </div>
             ))}
           </div>
+
+          {/* Coloring Page Preview */}
+          {coloringPageUrl && (
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                🖍️ דף צביעה
+                <span className="text-xs text-slate-500">(נוצר מתמונת השער)</span>
+              </h2>
+              <div className="bg-slate-800 rounded-xl overflow-hidden border-2 border-pink-500/30 max-w-md">
+                <div className="relative">
+                  <img src={coloringPageUrl} alt="דף צביעה" className="w-full h-auto bg-white" />
+                  <div className="absolute top-3 right-3 bg-pink-500/80 backdrop-blur text-white text-xs font-bold px-2 py-1 rounded">דף צביעה</div>
+                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent flex justify-end gap-2">
+                    <button
+                      onClick={handleGenerateColoringPage}
+                      disabled={isGeneratingColoring}
+                      className="p-2 bg-white/10 hover:bg-white/30 rounded-full text-white backdrop-blur-sm disabled:opacity-50"
+                      title="צור מחדש"
+                    >
+                      {isGeneratingColoring ? '⏳' : '🔄'}
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">דף צביעה ייכלל ב-ZIP</span>
+                  <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeColoringPage}
+                      onChange={(e) => setIncludeColoringPage(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-500 bg-slate-700 checked:bg-pink-500 cursor-pointer"
+                    />
+                    כלול ב-ZIP
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
